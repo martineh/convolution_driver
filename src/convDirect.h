@@ -134,7 +134,7 @@ void transform_filter_block_blis( int, int,
 				  int, int, 
 				  DTYPE *, int, int, int,
 				  DTYPE *, int, int, int, int,
-				  int);
+				  int, int, int);
 
 void convDirect_block_blis( int, int, int, 
 		            int, int, 
@@ -144,7 +144,8 @@ void convDirect_block_blis( int, int, int,
 			    DTYPE *, int, int, int, int,
 			    DTYPE *, int, int, int, 
 			    DTYPE *, DTYPE *,
-			    int, int, int, int);
+			    int, int, int, int, int, int, int, 
+			    void (*kernel)(size_t , float *, float *, float *, float *, float *, size_t ));
 
 
 void packRB( char, char, int, int, DTYPE *, int, DTYPE *, int);

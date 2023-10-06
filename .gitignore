@@ -55,4 +55,5 @@ output
 *.pyc
 src/asm_generator/__pycache__
 build
-
+src/asm_generator/ukernels/
+*.swp

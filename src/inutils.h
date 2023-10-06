@@ -57,6 +57,11 @@ typedef struct testConfig {
   char test;
   unsigned char type;
   char debug;
+  int MR;
+  int NR;
+  int TH;
+  char ALG[64];
+  char GEMM[64];
   FILE *fd_csv;  
   unsigned char format;
 } testConfig_t;

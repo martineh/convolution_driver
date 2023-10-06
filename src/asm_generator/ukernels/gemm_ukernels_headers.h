@@ -1,3 +1,13 @@
 void gemm_ukernel_asm(size_t, size_t, size_t, size_t, size_t, float *, float *, float *, float *, float *, float *, size_t);
-void pack_A( int _MR, int mc, int kc, float *A, int ldA, float *Ac);
 void gemm_ukernel_asm_4x4(size_t , float *, float *, float *, float *, float *, size_t );
+void gemm_ukernel_asm_4x8(size_t , float *, float *, float *, float *, float *, size_t );
+void gemm_ukernel_asm_4x12(size_t , float *, float *, float *, float *, float *, size_t );
+void gemm_ukernel_asm_4x16(size_t , float *, float *, float *, float *, float *, size_t );
+void gemm_ukernel_asm_4x20(size_t , float *, float *, float *, float *, float *, size_t );
+void gemm_ukernel_asm_8x4(size_t , float *, float *, float *, float *, float *, size_t );
+void gemm_ukernel_asm_8x8(size_t , float *, float *, float *, float *, float *, size_t );
+void gemm_ukernel_asm_8x12(size_t , float *, float *, float *, float *, float *, size_t );
+void gemm_ukernel_asm_12x4(size_t , float *, float *, float *, float *, float *, size_t );
+void gemm_ukernel_asm_12x8(size_t , float *, float *, float *, float *, float *, size_t );
+void gemm_ukernel_asm_16x4(size_t , float *, float *, float *, float *, float *, size_t );
+void gemm_ukernel_asm_20x4(size_t , float *, float *, float *, float *, float *, size_t );

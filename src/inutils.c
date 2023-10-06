@@ -136,76 +136,39 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
   char algorithm[32];
   char kernel[32];
 
+  new_testConfig->format = NHWC;
   new_testConfig->tmin   = atof(argv[3]);
   new_testConfig->test   = argv[4][0];
   new_testConfig->debug  = argv[5][0];
   new_testConfig->fd_csv = fopen(argv[6], "w");
+  new_testConfig->MR     = atoi(argv[7]);
+  new_testConfig->NR     = atoi(argv[8]);
+  new_testConfig->TH     = atoi(argv[9]);
 
-  if (strcmp(argv[7], "BOTH") == 0) {
-    new_testConfig->format = NHWC + NCHW;
-    sprintf(format_str, "%s", "NHWC|NCHW");
-  } else if (strcmp(argv[7], "NCHW") == 0) {
-    new_testConfig->format = NCHW;
-    sprintf(format_str, "%s", "NCHW");
-  } else if (strcmp(argv[7], "NHWC") == 0) {
-    new_testConfig->format = NHWC;
-    sprintf(format_str, "%s", "NHWC");
-  } else {
-    printf("ERROR: Matrix Format unrecognized.\n");
-    exit(-1);
-  }
-  
-  #ifdef LOWERING
-    sprintf(algorithm, "%s", "LOWERING");
-  #elif CONVGEMM
-    sprintf(algorithm, "%s", "CONVGEMM");
-  #elif RENAMED
-    sprintf(algorithm, "%s", "RENAMED");
-  #elif REORDER
-    sprintf(algorithm, "%s", "REORDER");
-  #elif BLOCKED
-    sprintf(algorithm, "%s", "BLOCKED");
-  #elif BLOCKED_TZEMENG
-    sprintf(algorithm, "%s", "BLOCKED_TZEMENG");
-  #elif BLOCKED_SHALOM
-    sprintf(algorithm, "%s", "BLOCKED_SHALOM");
-  #elif BLOCKED_BLIS
-    sprintf(algorithm, "%s", "BLOCKED_BLIS");
-  #else
-    sprintf(algorithm, "%s", "UNKNOWN");
-  #endif
+  strcpy(new_testConfig->ALG, argv[10]);
+  strcpy(new_testConfig->GEMM, argv[11]);
 
-  #if defined(LOWERING) && defined(BLIS) 
-    sprintf(kernel, "BLIS");
-  #elif defined(LOWERING) && defined(OPENBLAS)
-    sprintf(kernel, "OPENBLAS");
-  #else
-    #ifndef LOWERING
-    sprintf(kernel, "%dx%d ", MR, NR);
-    #else
-      #ifdef A3B2C0
-        sprintf(kernel, "%dx%d (A3B2C0)", MR, NR);
-      #else
-        sprintf(kernel, "%dx%d (B3A2C0)", MR, NR);
-      #endif
-    #endif
-  #endif
+  sprintf(format_str, "%s", "NHWC");
 
-  printf("\n =====================================================================\n");
-  printf(" |%s               T E S T     C O N F I G U R A T I O N               %s|\n", COLOR_BOLDYELLOW, COLOR_RESET);
-  printf(" =====================================================================\n");
-  printf(" |  [%s*%s] Matrix Format Selected |  %-35s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, format_str);
-  printf(" |  [%s*%s] Test Verification      |  %-35s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[4][0] == 'T' ? "ON" : "OFF");
-  printf(" |  [%s*%s] Mode Debug             |  %-35s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[5][0] == 'T' ? "ON" : "OFF");
-  printf(" |  [%s*%s] Configuration Selected |  %-35s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[2]);
-  printf(" |  [%s*%s] File Results Selected  |  %-35s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[6]);
-  printf(" =====================================================================\n");
-  printf(" |  [%s*%s] Algorithm Selected     |  %s%-35s%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDMAGENTA, algorithm, COLOR_RESET);
-  printf(" |  [%s*%s] Micro-Kernel Selected  |  %s%-35s%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDMAGENTA, kernel, COLOR_RESET);
-  printf(" |  [%s*%s] Threads Number         |  %s%-35d%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDMAGENTA, TH, COLOR_RESET);
-  printf(" =====================================================================\n\n");
+  sprintf(algorithm, "%s", new_testConfig->ALG);
+  sprintf(kernel,    "%s", new_testConfig->GEMM);
 
-   
+  printf("\n");
+  printf(" +==================================================================================================================+\n");
+  printf(" |%s                                           TEST PARAMETERS CONFIGURATION                                          %s|\n", COLOR_BOLDYELLOW, COLOR_RESET);
+  printf(" +=====================================+============================================================================+\n");
+  printf(" |  [%s*%s] Matrix Format Selected         |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, format_str);
+  printf(" |  [%s*%s] Test Verification              |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[4][0] == 'T' ? "ON" : "OFF");
+  printf(" |  [%s*%s] Mode Debug                     |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[5][0] == 'T' ? "ON" : "OFF");
+  printf(" |  [%s*%s] Configuration Selected         |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[2]);
+  printf(" |  [%s*%s] File Results Selected          |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[6]);
+  printf(" +=====================================+============================================================================+\n");
+  printf(" |  [%s*%s] Algorithm Selected             |  %s%-74s%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDCYAN, algorithm, COLOR_RESET);
+  if (strcmp("LOWERING", new_testConfig->ALG)==0)
+    printf(" |  [%s*%s] GEMM Selected                  |  %s%-74s%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDCYAN, kernel, COLOR_RESET);
+  printf(" |  [%s*%s] Threads Number                 |  %s%-74d%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDCYAN, new_testConfig->TH, COLOR_RESET);
+  printf(" +=====================================+============================================================================+\n\n");
+
   if ((new_testConfig->debug == 'T') && (new_testConfig->test != 'T')) {
     printf("WARNING: Mode debug enable. Test mode automatically enabled.\n");
     new_testConfig->test = 'T';

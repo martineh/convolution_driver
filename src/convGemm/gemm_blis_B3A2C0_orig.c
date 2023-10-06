@@ -33,7 +33,7 @@ void gemm_blis_B3A2C0_orig(char orderA, char orderB, char orderC,
                            float *Ac, pack_func pack_RB,
                            float *Bc, pack_func pack_CB,
                            const conv_p *conv_params,
-			   int MC, int NC, int KC, float *Ctmp) {
+			   int MC, int NC, int KC, int MR, int NR, int TH, float *Ctmp) {
 
     // Quick return if possible
     float zero = (float) 0.0, one = (float) 1.0;
@@ -71,8 +71,8 @@ void gemm_blis_B3A2C0_orig(char orderA, char orderB, char orderC,
                         int mr = min(mc - ir, MR);
                         int nr = min(nc - jr, NR);
                         float *Cptr = (orderC == 'C') ? &Ccol(ic + ir, jc + jr) : &Crow(ic + ir, jc + jr);
-			gemm_ukernel_asm(mr, nr, MR, NR, kc, &alpha, &Ac[ir*kc], &Bc[jr*kc],
-                             &betaI, &Ctmp[th_id * MR * NR], Cptr, ldC);
+			//gemm_ukernel_asm(mr, nr, MR, NR, kc, &alpha, &Ac[ir*kc], &Bc[jr*kc],
+                        //     &betaI, &Ctmp[th_id * MR * NR], Cptr, ldC);
                     }
                 }
             }

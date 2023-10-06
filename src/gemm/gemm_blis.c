@@ -34,191 +34,6 @@
 
 int print_matrix(char *, char, size_t, int, DTYPE *, size_t);
 
-#if TH == 1
-void gemm_blis_B3A2C0( char orderA, char orderB, char orderC,
-                       char transA, char transB, 
-                       size_t m, size_t n, size_t k, 
-                       DTYPE alpha, DTYPE *A, size_t ldA, 
-		       DTYPE *B, size_t ldB, DTYPE beta,  
-		       DTYPE *C, size_t ldC, DTYPE *Ac, DTYPE *Bc, 
-                       size_t MC, size_t NC, size_t KC, DTYPE *Ctmp) {
-
-  size_t    ic, jc, pc, mc, nc, kc, ir, jr, mr, nr; 
-  DTYPE  zero = 0.0, one = 1.0, betaI; 
-  DTYPE  *Aptr, *Bptr, *Cptr;
-
-  #if defined(CHECK)
-  #include "check_params.h"
-  #endif
-  
-  // Quick return if possible
-  if ( (m==0)||(n==0)||(((alpha==zero)||(k==0))&&(beta==one)) )
-    return;
-  
-  #include "quick_gemm.h"
-
-  for ( jc=0; jc<n; jc+=NC ) {
-    nc = min(n-jc, NC); 
-
-    for ( pc=0; pc<k; pc+=KC ) {
-      kc = min(k-pc, KC); 
-      
-      if ( (transB=='N')&&(orderB=='C') )
-        Bptr = &Bcol(pc,jc);
-      else if ( (transB=='N')&&(orderB=='R') )
-        Bptr = &Brow(pc,jc);
-      else if ( (transB=='T')&&(orderB=='C') )
-        Bptr = &Bcol(jc,pc);
-      else
-        Bptr = &Brow(jc,pc);
-      
-      pack_CB( orderB, transB, kc, nc, Bptr, ldB, Bc, NR);
-      
-      if ( pc==0 )
-        betaI = beta;
-      else
-        betaI = one;
-      
-      for ( ic=0; ic<m; ic+=MC ) {
-        mc = min(m-ic, MC); 
-	
-        if ( (transA=='N')&&(orderA=='C') ){
-          Aptr = &Acol(ic, pc);
-	}else if ( (transA=='N')&&(orderA=='R') ){
-          Aptr = &Arow(ic, pc);
-	}else if ( (transA=='T')&&(orderA=='C') ){
-          Aptr = &Acol(pc, ic);
-	}else{
-          Aptr = &Arow(pc, ic);
-	}
-	
-	//#ifdef ARMV8
-        //pack_A( MR, mc, kc, Aptr, ldA, Ac);
-	//#else
-        pack_RB( orderA, transA, mc, kc, Aptr, ldA, Ac, MR);
-	//#endif
-	
-        for ( jr=0; jr<nc; jr+=NR ) {
-          nr = min(nc-jr, NR); 
-	  
-          for ( ir=0; ir<mc; ir+=MR ) {
-            mr = min(mc-ir, MR); 
-	    
-            if ( orderC=='C' )
-              Cptr = &Ccol(ic+ir,jc+jr);
-	    else
-              Cptr = &Crow(ic+ir,jc+jr);
-
-	    gemm_ukernel_asm(mr, nr, MR, NR, kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], 
-			     &betaI, Ctmp, Cptr, ldC); 
-	    
-          }
-        }
-      }
-    }
-  }
-}
-
-#else
-
-//----------------------------------------------------------
-//Loop ic (L3) Parallelization
-//----------------------------------------------------------
-/*
-void gemm_blis_B3A2C0( char orderA, char orderB, char orderC,
-                       char transA, char transB, 
-                       size_t m, size_t n, size_t k, 
-                       DTYPE alpha, DTYPE *A, size_t ldA, 
-		                    DTYPE *B, size_t ldB, 
-		       DTYPE beta,  DTYPE *C, size_t ldC, 
-		       DTYPE *Ac, DTYPE *Bc, 
-                       size_t MC, size_t NC, size_t KC, DTYPE *Ctmp){
-  
-  int    ic, jc, pc, mc, nc, kc, ir, jr, mr, nr; 
-  DTYPE  zero = 0.0, one = 1.0, betaI; 
-  DTYPE  *Aptr, *Bptr, *Cptr, *Acptr;
-
-  #if defined(CHECK)
-  #include "check_params.h"
-  #endif
-
-  // Quick return if possible
-  if ( (m==0)||(n==0)||(((alpha==zero)||(k==0))&&(beta==one)) )
-    return;
-
-
-  #include "quick_gemm.h"
-  #pragma omp parallel num_threads(TH) private(jc, pc, kc, ic, mc, nc, Aptr, Bptr, Cptr, Acptr, jr, ir, nr, mr)
-  {
-  
-  int th_id = omp_get_thread_num();
-
-  for ( jc=0; jc<n; jc+=NC ) {
-    nc = min(n-jc, NC); 
-    int its_nc = (int) ceil((double)nc/NR/TH);
-
-    for ( pc=0; pc<k; pc+=KC ) {
-      kc = min(k-pc, KC); 
-
-      if ( (transB=='N')&&(orderB=='C') )
-        Bptr = &Bcol(pc,jc+its_nc*NR*th_id);
-      else if ( (transB=='N')&&(orderB=='R') )
-        Bptr = &Brow(pc,jc+its_nc*NR*th_id);
-      else if ( (transB=='T')&&(orderB=='C') )
-        Bptr = &Bcol(jc+its_nc*NR*th_id,pc);
-      else
-        Bptr = &Brow(jc+its_nc*NR*th_id,pc);
-
-      pack_CB( orderB, transB, kc, min(its_nc*NR, nc - its_nc*NR*th_id), Bptr, ldB, Bc+kc*its_nc*NR*th_id, NR);
-      
-      if ( pc==0 )
-        betaI = beta;
-      else
-        betaI = one;
-
-      int its_m = (int) ceil((double)m/MC/TH);
-      Acptr = Ac + ((MC + MR )* (KC + KR)) * th_id;
-
-      #pragma omp barrier
-      for ( ic=th_id*(its_m * MC); ic<min(m, (th_id+1) * (its_m * MC)); ic+=MC ) {
-        mc = min(m-ic, MC); 
-
-        if ( (transA=='N')&&(orderA=='C') ){
-          Aptr = &Acol(ic, pc);
-	}else if ( (transA=='N')&&(orderA=='R') ){
-          Aptr = &Arow(ic, pc);
-	}else if ( (transA=='T')&&(orderA=='C') ){
-          Aptr = &Acol(pc, ic);
-	}else{
-          Aptr = &Arow(pc, ic);
-	}
-
-        pack_RB( orderA, transA, mc, kc, Aptr, ldA, Acptr, MR);
-       
-        for ( jr=0; jr<nc; jr+=NR ) {
-          nr = min(nc-jr, NR); 
-
-          for ( ir=0; ir<mc; ir+=MR ) {
-            mr = min(mc-ir, MR); 
-
-            if ( orderC=='C' )
-              Cptr = &Ccol(ic+ir,jc+jr);
-            else
-              Cptr = &Crow(ic+ir,jc+jr);
-	   
-            gemm_ukernel_asm(mr, nr, MR, NR, kc, &alpha, &Acptr[ir*kc], &Bc[jr*kc], 
-			     &betaI, &Ctmp[th_id * MR * NR], Cptr, ldC);
-
-	  }
-        }
-      }
-      #pragma omp barrier
-     }
-   }
- }
-}
-*/
-
 //----------------------------------------------------------
 //Loop jr (L4) Parallelization
 //----------------------------------------------------------
@@ -229,10 +44,16 @@ void gemm_blis_B3A2C0( char orderA, char orderB, char orderC,
 		                    DTYPE *B, size_t ldB, 
 		       DTYPE beta,  DTYPE *C, size_t ldC, 
 		       DTYPE *Ac, DTYPE *Bc, 
-                       size_t MC, size_t NC, size_t KC, DTYPE *Ctmp) {
-  int    ic, jc, pc, mc, nc, kc, ir, jr, mr, nr; 
+                       size_t MC, size_t NC, size_t KC, 
+		       int MR, int NR, int TH, DTYPE *Ctmp,
+		       void (*kernel)(size_t , float *, float *, float *, float *, float *, size_t )) {
+
+  int    ic, jc, pc, mc, nc, kc, ir, jr, mr, nr, j, i; 
   DTYPE  zero = 0.0, one = 1.0, betaI; 
   DTYPE  *Aptr, *Bptr, *Cptr;
+  float  beta_edge = 0.0;
+
+  DTYPE *Ctmp_th;
 
   #if defined(CHECK)
   #include "check_params.h"
@@ -244,172 +65,96 @@ void gemm_blis_B3A2C0( char orderA, char orderB, char orderC,
 
   #include "quick_gemm.h"
 
-  #pragma omp parallel num_threads(TH) private(jc, nc, pc, kc, Bptr, ic, mc, Aptr, Cptr, jr, nr, ir, mr)
-  {
-  
-  int th_id = omp_get_thread_num();
-
-  for ( jc=0; jc<n; jc+=NC ) {
-    nc = min(n-jc, NC); 
-	
-    int its_nc = (int) ceil((double)nc/NR/TH);
-    //printf("(m=%zu, n=%zu, k=%zu) | chunks per thread = %d/%d = %.2f (its_nc=%d)\n", m, n, k, nc, NR, (double)nc/NR, its_nc);
-
-    for ( pc=0; pc<k; pc+=KC ) {
-      kc = min(k-pc, KC); 
-
-      if ( (transB=='N')&&(orderB=='C') )
-        Bptr = &Bcol(pc, jc + its_nc * NR * th_id);
-      else if ( (transB=='N')&&(orderB=='R') )
-        Bptr = &Brow(pc, jc + its_nc * NR * th_id);
-      else if ( (transB=='T')&&(orderB=='C') )
-        Bptr = &Bcol(jc + its_nc * NR * th_id, pc);
-      else
-        Bptr = &Brow(jc + its_nc * NR * th_id, pc);
-
-      pack_CB( orderB, transB, kc, min(its_nc * NR, nc - its_nc * NR * th_id), 
-	       Bptr, ldB, Bc + kc * its_nc * NR * th_id, NR);
-
-      if ( pc==0 )
-        betaI = beta;
-      else
-        betaI = one;
-
-      for ( ic=0; ic<m; ic+=MC ) {
-        mc = min(m-ic, MC); 
-
-	int its_mc = (int) ceil((double)mc/MR/TH);
-        if ( (transA=='N')&&(orderA=='C') )
-          Aptr = &Acol(ic + its_mc * MR * th_id,pc);
-        else if ( (transA=='N')&&(orderA=='R') )
-          Aptr = &Arow(ic + its_mc * MR * th_id,pc);
-        else if ( (transA=='T')&&(orderA=='C') )
-          Aptr = &Acol(pc,ic + its_mc * MR * th_id);
-        else
-          Aptr = &Arow(pc,ic + its_mc * MR * th_id);
-
-        pack_RB( orderA, transA, min(its_mc * MR, mc - its_mc * MR * th_id), kc, 
-		 Aptr, ldA, Ac + kc * its_mc * MR * th_id, MR);
-
-	#pragma omp barrier
-       
-        for ( jr=th_id*(its_nc*NR); jr<min(nc,(th_id+1)*(its_nc*NR)); jr+=NR ) {
-          nr = min(nc-jr, NR); 
-
-          for ( ir=0; ir<mc; ir+=MR ) {
-            mr = min(mc-ir, MR); 
-
-            if ( orderC=='C' )
-              Cptr = &Ccol(ic+ir,jc+jr);
-            else
-              Cptr = &Crow(ic+ir,jc+jr);
-
-            gemm_ukernel_asm(mr, nr, MR, NR, kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], 
-			     &betaI, &Ctmp[th_id * MR * NR], Cptr, ldC);
-
-          }
-        }
-	#pragma omp barrier
-      }
-    }
-  }
- }
-}
-
-void gemm_blis_A3B2C0( char orderA, char orderB, char orderC,
-                       char transA, char transB,
-                       size_t m, size_t n, size_t k,
-                       DTYPE alpha, DTYPE *A, size_t ldA,
-                                    DTYPE *B, size_t ldB,
-                       DTYPE beta,  DTYPE *C, size_t ldC,
-                       DTYPE *Ac, DTYPE *Bc,
-                       size_t MC, size_t NC, size_t KC, DTYPE *Ctmp){ 
-
-  int    ic, jc, pc, mc, nc, kc, ir, jr, mr, nr;
-  DTYPE  zero = 0.0, one = 1.0, betaI;
-  DTYPE  *Aptr, *Bptr, *Cptr, *Bcptr;
-
-  #if defined(CHECK)
-  #include "check_params.h"
-  #endif
-
-  // Quick return if possible
-  if ( (m==0)||(n==0)||(((alpha==zero)||(k==0))&&(beta==one)) )
-    return;
-
-  #include "quick_gemm.h"
-  
-  #pragma omp parallel num_threads(TH) private(ic, pc, jc, kc, mc, nc, Aptr, Bptr, Cptr, Bcptr, jr, ir, nr, mr)
-  {
-
-  int th_id = omp_get_thread_num();
-
-  for ( ic=0; ic<m; ic+=MC ) {
-    mc = min(m-ic, MC);
-    int its_mc = (int) ceil((double)mc/MR/TH);
-
-    for ( pc=0; pc<k; pc+=KC ) {
-      kc = min(k-pc, KC);
-
-      if ( (transA=='N')&&(orderA=='C') )
-       Aptr = &Acol(ic+its_mc*MR*th_id, pc);
-     else if ( (transA=='N')&&(orderA=='R') )
-       Aptr = &Arow(ic+its_mc*MR*th_id, pc);
-      else if ( (transA=='T')&&(orderA=='C') )
-       Aptr = &Acol(pc, ic+its_mc*MR*th_id);
-      else
-       Aptr = &Arow(pc, ic+its_mc*MR*th_id);
-      
-      pack_RB( orderA, transA, min(its_mc*MR, mc - its_mc*MR*th_id), kc, Aptr, ldA, Ac + kc*its_mc*MR*th_id, MR);
-
-      if ( pc==0 )
-        betaI = beta;
-      else
-        betaI = one;
-
-      int its_n = (int) ceil((double)n/NC/TH);
-      Bcptr = Bc + ((NC + NR )* (KC + KR)) * th_id;
-      #pragma omp barrier
-      for ( jc=th_id*(its_n * NC); jc<min(n, (th_id+1) * (its_n * NC)); jc+=NC ) {
-
-        nc = min(n-jc, NC);
-        if ( (transB=='N')&&(orderB=='C') )
-          Bptr = &Bcol(pc,jc);
-        else if ( (transB=='N')&&(orderB=='R') )
-          Bptr = &Brow(pc,jc);
-        else if ( (transB=='T')&&(orderB=='C') )
-          Bptr = &Bcol(jc,pc);
-        else
-          Bptr = &Brow(jc,pc);
-
-        pack_CB( orderB, transB, kc, nc, Bptr, ldB, Bcptr, NR);
-
-        for ( ir=0; ir<mc; ir+=MR ) {
-          mr = min(mc-ir, MR);
-
+  if (TH == 1) {
+    for ( jc=0; jc<n; jc+=NC ) {
+      nc = min(n-jc, NC); 
+      for ( pc=0; pc<k; pc+=KC ) {
+        kc = min(k-pc, KC); 
+        Bptr = &Bcol(pc,jc);
+        
+	pack_CB( orderB, transB, kc, nc, Bptr, ldB, Bc, NR);
+        
+	if ( pc==0 ) betaI = beta;
+        else betaI = one;
+        
+	for ( ic=0; ic<m; ic+=MC ) {
+          mc = min(m-ic, MC); 
+          Aptr = &Acol(ic, pc);
+          pack_RB( orderA, transA, mc, kc, Aptr, ldA, Ac, MR);
           for ( jr=0; jr<nc; jr+=NR ) {
-            nr = min(nc-jr, NR);
-
-            if ( orderC=='C' )
-              Cptr = &Ccol(ic+ir,jc+jr);
-            else
-              Cptr = &Crow(ic+ir,jc+jr);
-
-	    
-            gemm_ukernel_asm(mr, nr, MR, NR, kc, &alpha, &Ac[ir*kc], &Bcptr[jr*kc], 
-	    		     &betaI, &Ctmp[th_id * MR * NR], Cptr, ldC);
-            
+            nr = min(nc-jr, NR); 
+            for ( ir=0; ir<mc; ir+=MR ) {
+              mr = min(mc-ir, MR); 
+                Cptr = &Ccol(ic+ir,jc+jr);
+  	      if (mr == MR && nr == NR) {
+                kernel(kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &betaI, Cptr, ldC * sizeof(float));
+              } else {
+                kernel(kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &beta_edge, Ctmp, MR * sizeof(float));
+                for (j = 0; j < nr; j++)
+                  for (i = 0; i < mr; i++)
+                    Cptr[j*ldC + i] = (betaI) * Cptr[j*ldC + i] + Ctmp[j * MR + i];
+              }
+            }
           }
         }
       }
-      #pragma omp barrier
-     }
+    }
+  
+  } else {
+    #pragma omp parallel num_threads(TH) private(jc, nc, pc, kc, Bptr, ic, mc, Aptr, Cptr, Ctmp_th, jr, nr, ir, mr)
+    {
+      int th_id = omp_get_thread_num();
+      for ( jc=0; jc<n; jc+=NC ) {
+        nc = min(n-jc, NC); 
+        int its_nc = (int) ceil((double)nc/NR/TH);
+        for ( pc=0; pc<k; pc+=KC ) {
+          kc = min(k-pc, KC); 
+          Bptr = &Bcol(pc, jc + its_nc * NR * th_id);
+
+          pack_CB( orderB, transB, kc, min(its_nc * NR, nc - its_nc * NR * th_id), 
+	           Bptr, ldB, Bc + kc * its_nc * NR * th_id, NR);
+          
+	  if ( pc==0 ) betaI = beta;
+          else betaI = one;
+
+          for ( ic=0; ic<m; ic+=MC ) {
+            mc = min(m-ic, MC); 
+
+	    int its_mc = (int) ceil((double)mc/MR/TH);
+            Aptr = &Acol(ic + its_mc * MR * th_id,pc);
+
+            pack_RB( orderA, transA, min(its_mc * MR, mc - its_mc * MR * th_id), kc, 
+		     Aptr, ldA, Ac + kc * its_mc * MR * th_id, MR);
+
+	    #pragma omp barrier
+            for ( jr=th_id*(its_nc*NR); jr<min(nc,(th_id+1)*(its_nc*NR)); jr+=NR ) {
+              nr = min(nc-jr, NR); 
+
+              for ( ir=0; ir<mc; ir+=MR ) {
+                mr = min(mc-ir, MR); 
+
+                Cptr = &Ccol(ic+ir,jc+jr);
+
+	        if (mr == MR && nr == NR) {
+                  kernel(kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &betaI, Cptr, ldC * sizeof(float));
+                } else {
+	          Ctmp_th = &Ctmp[th_id * MR * NR];
+                  kernel(kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &beta_edge, Ctmp_th, MR * sizeof(float));
+                  for (j = 0; j < nr; j++)
+                    for (i = 0; i < mr; i++)
+                      Cptr[j*ldC + i] = (betaI) * Cptr[j*ldC + i] + Ctmp_th[j * MR + i];
+                }
+
+              }
+            }
+	    #pragma omp barrier
+          }
+        }
+      }
     }
   }
+
 }
-
-#endif
-
 
 void pack_RB( char orderM, char transM, int mc, int nc, DTYPE *M, int ldM, DTYPE *Mc, int RR ){
 /*

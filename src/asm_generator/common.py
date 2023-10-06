@@ -4,7 +4,7 @@ u_folder = "ukernels"
 c_name   = "gemm_ukernel.c"
 h_name   = "gemm_ukernels_headers.h"
 
-def generate_edge_umicros(asm):
+def generate_general_call(asm):
     MR = asm.orig_mr
     NR = asm.orig_nr
 
@@ -28,39 +28,7 @@ def generate_edge_umicros(asm):
     foutS.write("  if (mr == _MR && nr == _NR) {\n")
     foutS.write("    gemm_ukernel_asm_%dx%d(kc, alpha, a, b, beta, C, ldC * sizeof(float));\n" % (MR, NR))
     foutS.write("  } else {\n")
-
-    if (MR == asm.vl and NR == asm.vl):
-        foutS.write("    gemm_ukernel_asm_%dx%d(kc, alpha, a, b, &beta_edge, ctmp, _MR * sizeof(float));\n" % (MR, NR))
-    else:
-        MR_target = MR
-        NR_target = NR
-        min_NR_loop = asm.vl
-        if asm.vl != MR or asm.vl != NR:
-            if asm.vl == MR:
-                MR_target = MR + 1 
-            else:
-                NR_target = NR + 1
-
-        if asm.arch == "riscv" and (NR < asm.vl):
-            min_NR_loop = NR
-            NR_target = min_NR_loop + 1
-
-        first = True
-        for mr in range (asm.vl, MR_target, asm.vl):
-            for nr in range (min_NR_loop, NR_target, asm.vl):
-                print ("    [*] Generate Edge                  : %dx%d" % (mr, nr))
-                asm.set_edge(mr, nr)
-                asm.generate_umicro()
-                if first:
-                    foutS.write("    if ((mr <= %d) && (nr <=%d))\n" % (mr, nr))
-                    first = False
-                else:
-                    foutS.write("    else if ((mr <= %d) && (nr <=%d))\n" % (mr, nr))
-                foutS.write("      gemm_ukernel_asm_%dx%d(kc, alpha, a, b, &beta_edge, ctmp, _MR * sizeof(float));\n" % (mr, nr))
-
-        foutS.write("    else\n")
-        foutS.write("      gemm_ukernel_asm_%dx%d(kc, alpha, a, b, &beta_edge, ctmp, _MR * sizeof(float));\n" % (MR, NR))
-
+    foutS.write("    gemm_ukernel_asm_%dx%d(kc, alpha, a, b, &beta_edge, ctmp, _MR * sizeof(float));\n" % (MR, NR))
     foutS.write("    for (j = 0; j < nr; j++)\n")
     foutS.write("      for (i = 0; i < mr; i++)\n")
     foutS.write("        C[j*ldC + i] = (*beta) * C[j*ldC + i] + ctmp[j * _MR + i];\n")
@@ -130,7 +98,7 @@ def generate_packA(asm):
 def new_micro_file(MR, NR):
     #Micro-Kernel Output Files
     name_path = os.path.dirname(__file__) + "/" + u_folder
-    
+   
     #Include .S
     Cname = "gemm_ukernel_asm_%dx%d.S" % (MR, NR)
     file_name = name_path + "/" + Cname
@@ -167,7 +135,6 @@ def add_header(MR, NR):
     else:
         fdout = open(file_name, "w")
         fdout.write("void gemm_ukernel_asm(size_t, size_t, size_t, size_t, size_t, float *, float *, float *, float *, float *, float *, size_t);\n")
-        fdout.write("void pack_A( int _MR, int mc, int kc, float *A, int ldA, float *Ac);\n")
 
     if add_header:
         fdout.write("void gemm_ukernel_asm_%dx%d(size_t , float *, float *, float *, float *, float *, size_t );\n" % (MR, NR))

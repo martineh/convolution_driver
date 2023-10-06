@@ -7,7 +7,8 @@ import common as cm
 #=====================================================================
 class ASM_RISCV():
 
-    def __init__(self, MR, NR, arch, broadcast, gather, reorder, unroll, pipelining):
+    def __init__(self, MR, NR, arch, broadcast, gather, reorder, unroll, pipelining, tag=""):
+        self.tag         = tag
         self.edge        = False
         self.vl          = 4  #Register line size
         self.vr_max      = 32 #Maximum number of vectorial registers

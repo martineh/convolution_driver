@@ -7,41 +7,41 @@ import common as cm
 #=====================================================================
 class ASM_ARMv8():
 
-    def __init__(self, MR, NR, arch, unroll, pipelining):
-        self.edge        = False
-        self.vl          = 4  
-        self.vr_max      = 32 
-        self.data_type   = 4
-        self.arch        = arch
-        self.pipelining  = pipelining
+    def __init__(self, MR, NR, arch, unroll, pipelining, tag=""):
+        self.tag        = tag
+        self.edge       = False
+        self.vl         = 4  
+        self.vr_max     = 32 
+        self.data_type  = 4
+        self.arch       = arch
+        self.pipelining = pipelining
 
         if pipelining:
-            self.unroll  = 2
+            self.unroll = 2
         else:
-            self.unroll  = unroll
+            self.unroll = unroll
 
-        self.maxB        = NR // self.vl
+        self.maxB       = NR // self.vl
          
-        self.orig_mr     = MR
-        self.orig_nr     = NR
-        self.mr          = MR
-        self.nr          = NR
+        self.orig_mr    = MR
+        self.orig_nr    = NR
+        self.mr         = MR
+        self.nr         = NR
 
-        self.r_kc        = "x0"
-        self.r_alpha     = "x1"
-        self.r_a         = "x2"
-        self.r_b         = "x3"
-        self.r_beta      = "x4"
-        self.r_c         = "x5"
-        self.r_ldC       = "x6"
-        self.r_unroll    = "x7"
-        self.r_kc_iter   = "x8"
-        self.r_kc_left   = "x9"
+        self.r_kc       = "x0"
+        self.r_alpha    = "x1"
+        self.r_a        = "x2"
+        self.r_b        = "x3"
+        self.r_beta     = "x4"
+        self.r_c        = "x5"
+        self.r_ldC      = "x6"
+        self.r_unroll   = "x7"
+        self.r_kc_iter  = "x8"
+        self.r_kc_left  = "x9"
 
-        self.AB_vreg     = 0
+        self.AB_vreg    = 0
 
         self.fout = None
-        cm.clear_path()
 
     def set_edge(self, new_MR, new_NR):
         if  (new_MR != 0) and (new_NR != 0) and (new_MR % self.vl == 0) and (new_NR % self.vl == 0):
@@ -149,7 +149,7 @@ class ASM_ARMv8():
         MR_rows = MR // self.vl
         NR_rows = NR // self.vl
 
-        self.fout.write(f"  .macro KERNEL_{MR}x{NR}\n")
+        self.fout.write(f"  .macro KERNEL_{MR}x{NR}{self.tag}\n")
        
         #1-Load A
         desp = self.vl * self.data_type
@@ -265,7 +265,7 @@ class ASM_ARMv8():
         self.fout.write(f"    ldr BETA, [beta_ptr]\n")
         self.fout.write(f"    fmov TMP, 1.0e+0 \n")
         self.fout.write(f"    fcmp BETA, TMP \n")
-        self.fout.write(f"    b.eq .LOAD_{MR}x{NR}\n")
+        self.fout.write(f"    b.eq .LOAD_{MR}x{NR}{self.tag}\n")
         #fout.write("\n")
     
         #BETA=0: Initialize Register to 0
@@ -273,11 +273,11 @@ class ASM_ARMv8():
             for r in range(0, MR_rows):
                 self.fout.write(f"    movi C{r}{c}v, 0\n")
         self.fout.write(f"\n")
-        self.fout.write(f"    b .S_LOOP_{MR}x{NR}\n")
+        self.fout.write(f"    b .S_LOOP_{MR}x{NR}{self.tag}\n")
         self.fout.write(f"\n")
     
         #BETA=1: Store C to registers
-        self.fout.write(f"  .LOAD_{MR}x{NR}:\n")
+        self.fout.write(f"  .LOAD_{MR}x{NR}{self.tag}:\n")
         for c in range(0, NR):
             self.fout.write(f"    ldr C0{c}q, [C0{c}_ptr]\n")
             desp = self.vl * self.data_type
@@ -290,35 +290,35 @@ class ASM_ARMv8():
     def simple_loop_KC(self):
         MR = self.mr
         NR = self.nr
-        self.fout.write(f"  .S_LOOP_{MR}x{NR}:\n")
-        self.fout.write(f"  .LOOP_{MR}x{NR}:\n")
+        self.fout.write(f"  .S_LOOP_{MR}x{NR}{self.tag}:\n")
+        self.fout.write(f"  .LOOP_{MR}x{NR}{self.tag}:\n")
         self.fout.write(f"    KERNEL_{MR}x{NR}\n")
         self.fout.write(f"    sub kc, kc, 1\n")
         self.fout.write(f"    cmp kc, 0\n")
-        self.fout.write(f"    b.ne .LOOP_{MR}x{NR}\n")
+        self.fout.write(f"    b.ne .LOOP_{MR}x{NR}{self.tag}\n")
         self.fout.write(f"\n")
 
     def unroll_loop_KC(self):
         MR = self.mr
         NR = self.nr
-        self.fout.write(f"  .S_LOOP_{MR}x{NR}:\n")
+        self.fout.write(f"  .S_LOOP_{MR}x{NR}{self.tag}:\n")
         self.fout.write(f"    cmp kc_iter, 0\n")
-        self.fout.write(f"    b.eq .LOOP_LEFT_{MR}x{NR}\n")
-        self.fout.write(f"  .LOOP_{MR}x{NR}:\n")
+        self.fout.write(f"    b.eq .LOOP_LEFT_{MR}x{NR}{self.tag}\n")
+        self.fout.write(f"  .LOOP_{MR}x{NR}{self.tag}:\n")
         for i in range(0,self.unroll):
-            self.fout.write(f"    KERNEL_{MR}x{NR}\n")
+            self.fout.write(f"    KERNEL_{MR}x{NR}{self.tag}\n")
         self.fout.write(f"    sub kc_iter, kc_iter, 1\n")
         self.fout.write(f"    cmp kc_iter, 0\n")
-        self.fout.write(f"    b.ne .LOOP_{MR}x{NR}\n")
+        self.fout.write(f"    b.ne .LOOP_{MR}x{NR}{self.tag}\n")
         self.fout.write(f"\n")
         
         self.fout.write(f"    cmp kc_left, 0\n")
-        self.fout.write(f"    b.eq .STORE_{MR}x{NR}\n")
-        self.fout.write(f"  .LOOP_LEFT_{MR}x{NR}:\n")
-        self.fout.write(f"    KERNEL_{MR}x{NR}\n")
+        self.fout.write(f"    b.eq .STORE_{MR}x{NR}{self.tag}\n")
+        self.fout.write(f"  .LOOP_LEFT_{MR}x{NR}{self.tag}:\n")
+        self.fout.write(f"    KERNEL_{MR}x{NR}{self.tag}\n")
         self.fout.write(f"    sub kc_left, kc_left, 1\n")
         self.fout.write(f"    cmp kc_left, 0\n")
-        self.fout.write(f"    b.ne .LOOP_LEFT_{MR}x{NR}\n")
+        self.fout.write(f"    b.ne .LOOP_LEFT_{MR}x{NR}{self.tag}\n")
         self.fout.write(f"\n")
     
     def loop_pipelining_KC(self):
@@ -330,11 +330,11 @@ class ASM_ARMv8():
         MR_rows = MR // self.vl
         NR_rows = NR // self.vl
 
-        self.fout.write(f"  .S_LOOP_{MR}x{NR}:\n")
+        self.fout.write(f"  .S_LOOP_{MR}x{NR}{self.tag}:\n")
         self.fout.write(f"    cmp kc_iter, 0\n")
-        self.fout.write(f"    b.eq .LOOP_LEFT_{MR}x{NR}\n")
+        self.fout.write(f"    b.eq .LOOP_LEFT_{MR}x{NR}{self.tag}\n")
         self.fout.write(f"\n")
-        self.fout.write(f"  .LOOP_{MR}x{NR}:\n")
+        self.fout.write(f"  .LOOP_{MR}x{NR}{self.tag}:\n")
        
         #Load A
         desp = self.vl * self.data_type
@@ -379,11 +379,11 @@ class ASM_ARMv8():
         #5-Branch Loop 
         self.fout.write(f"    sub kc_iter, kc_iter, 1\n")
         self.fout.write(f"    cmp kc_iter, 0\n")
-        self.fout.write(f"    b.ne .LOOP_{MR}x{NR}\n")
+        self.fout.write(f"    b.ne .LOOP_{MR}x{NR}{self.tag}\n")
         self.fout.write(f"\n")
-        self.fout.write(f"  .LOOP_LEFT_{MR}x{NR}:\n")
+        self.fout.write(f"  .LOOP_LEFT_{MR}x{NR}{self.tag}:\n")
         self.fout.write(f"    cmp kc_left, 0\n")
-        self.fout.write(f"    b.eq .STORE_{MR}x{NR}\n")
+        self.fout.write(f"    b.eq .STORE_{MR}x{NR}{self.tag}\n")
         
         #MAC-LOOP (B Loads + MAC) #Left
         for r in range(0, MR_rows):
@@ -398,7 +398,7 @@ class ASM_ARMv8():
 
         #Store C to registers
         MR_rows = MR // self.vl
-        self.fout.write(f"  .STORE_{MR}x{NR}:\n")
+        self.fout.write(f"  .STORE_{MR}x{NR}{self.tag}:\n")
         for c in range(0, NR):
             self.fout.write(f"    str C0{c}q, [C0{c}_ptr]\n")
             desp = self.vl * self.data_type

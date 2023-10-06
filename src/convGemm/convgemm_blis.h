@@ -69,31 +69,7 @@ void
 gemm_blis_B3A2C0_orig(char orderA, char orderB, char orderC, char transA, char transB, int m, int n, int k, float alpha,
                       const float *A, int ldA, const float *B, int ldB,
                       float beta, float *C, int ldC, float *Ac, pack_func pack_RB, float *Bc, pack_func pack_CB,
-                      const conv_p *conv_params, int MC, int NC, int KC, float *Ctmp);
+                      const conv_p *conv_params, int MC, int NC, int KC, int MR, int NR, int TH, float *Ctmp);
 
 void pack_RB_convgemm(char, char, int, int, const float *, int, float *, int, const conv_p *, int, int);
-
-//void gemm_blis_B3A2C0(char orderA, char orderB, char orderC, char transA, char transB, int m, int n, int k, float alpha,
-//                      const float *A, int ldA, const float *B, int ldB, float beta,
-//                      float *C, int ldC, float *Ac, pack_func pack_RB, float *Bc, pack_func pack_CB,
-//                      post_func postprocess, cntx_t *cntx, const conv_p *conv_params);
-
-//void gemm_blis_A3B2C0(char orderA, char orderB, char orderC, char transA, char transB, int m, int n, int k, float alpha,
-//                      const float *A, int ldA, const float *B, int ldB, float beta,
-//                      float *C, int ldC, float *Ac, pack_func pack_RB, float *Bc, pack_func pack_CB,
-//                      post_func postprocess, cntx_t *cntx, const conv_p *conv_params);
-
-
-//void gemm_base_Cresident(char, int, int, int, float, const float *, int, const float *, int, float, float *, int);
-
-
-//void
-//pack_CB(char orderM, char transM, int mc, int nc, const float *M, int ldM, float *Mc, int RR, const conv_p *conv_params,
-//        int start_row, int start_col);
-
-//void unpack_RB(char, char, int, int, float *, int, const float *, int);
-
-//void unpack_CB(char, char, int, int, float *, int, const float *, int);
-
-//void sxpbyM(int, int, const float *, int, float, float *, int);
 
