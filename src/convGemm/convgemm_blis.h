@@ -22,7 +22,7 @@
 #if TH != 1
   #include <omp.h>
 #endif
-#include "../asm_generator/ukernels/gemm_ukernels_headers.h"
+#include "../asm_generator/ukernels/gemm_ukernel_headers.h"
 
 #define min(a, b) (((a)<(b))?(a):(b))
 #define max(a, b) (((a)>(b))?(a):(b))
@@ -65,11 +65,12 @@ typedef void (*pack_func)(char orderM, char transM, int mc, int nc, const float 
 
 typedef void (*post_func)(int mr, int nr, const float *Cc, int ldCc, float beta, float *C, int ldC,
                           const conv_p *conv_p, int start_row, int start_col, bool last);
-void
-gemm_blis_B3A2C0_orig(char orderA, char orderB, char orderC, char transA, char transB, int m, int n, int k, float alpha,
-                      const float *A, int ldA, const float *B, int ldB,
-                      float beta, float *C, int ldC, float *Ac, pack_func pack_RB, float *Bc, pack_func pack_CB,
-                      const conv_p *conv_params, int MC, int NC, int KC, int MR, int NR, int TH, float *Ctmp);
+
+void convgemm_blis_B3A2C0(char orderA, char orderB, char orderC, char transA, char transB, int m, int n, int k, float alpha,
+                          const float *A, int ldA, const float *B, int ldB,
+                          float beta, float *C, int ldC, float *Ac, pack_func pack_RB, float *Bc, pack_func pack_CB,
+                          const conv_p *conv_params, int MC, int NC, int KC, int MR, int NR, int TH, float *Ctmp, 
+			  ukernel_asm ukr, ukernel_edge ukr_edge);
 
 void pack_RB_convgemm(char, char, int, int, const float *, int, float *, int, const conv_p *, int, int);
 

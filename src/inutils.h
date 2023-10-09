@@ -56,6 +56,7 @@ typedef struct testConfig {
   double tmin;
   char test;
   unsigned char type;
+  char bestof;
   char debug;
   int MR;
   int NR;

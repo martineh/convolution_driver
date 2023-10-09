@@ -39,6 +39,7 @@ def check_MR_NR(asm, arch):
                 tot_vregs += asm.nr // asm.vl
         else:
             tot_vregs += MR_vregs + NR_vregs 
+            tot_vregs += 2
 
     if tot_vregs > asm.vr_max: return -4
     
@@ -140,8 +141,10 @@ if __name__ == "__main__":
                 #----------------------------------------------------------------
                 #Generating micro-kernel
                 #----------------------------------------------------------------
-                #Generating micro-kernel master
                 print(f"Generating {MR}x{NR}...")
                 asm.generate_umicro()
+                cm.generate_edge_function(asm)
+                cm.generate_selector_function(asm)
                 #----------------------------------------------------------------
             
+    cm.generate_selector_function(asm, close=True)

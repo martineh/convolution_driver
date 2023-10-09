@@ -3,15 +3,13 @@
 void im2row(DTYPE *rows, int ld, DTYPE *in,
 	    int batch, int height, int width, int channel, int oheight, int owidth,
 	    int kheight, int kwidth, int vpadding, int hpadding, int vstride, int
-	    hstride, int vdilation, int hdilation)
+	    hstride, int vdilation, int hdilation, int TH)
 {
 
   int b, x, y, row, kx, ix, ky, iy, c, col;
  
   for (b = 0; b < batch; b++)
-    #if TH != 1
-      #pragma omp parallel for private (y, row, kx, ix, ky, iy, c, col)
-    #endif
+    #pragma omp parallel for private (y, row, kx, ix, ky, iy, c, col)
     for (x = 0; x < oheight; x++)
       for (y = 0; y < owidth; y++) {
 	row = b * oheight * owidth + x * owidth + y;

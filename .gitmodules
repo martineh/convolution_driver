@@ -1,0 +1,6 @@
+[submodule "src/blis"]
+	path = src/blis
+	url = https://github.com/flame/blis.git
+[submodule "src/OpenBLAS"]
+	path = src/OpenBLAS
+	url = https://github.com/OpenMathLib/OpenBLAS.git

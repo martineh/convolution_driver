@@ -317,6 +317,7 @@ void transform_filter_block_blis( int Ci, int Co,
     printf("Case not yet implemented!\n");
     exit(-1);
   }
+
 }
 
 void convDirect_block_blis( int t,     int Co,   int Ci, 
@@ -328,8 +329,7 @@ void convDirect_block_blis( int t,     int Co,   int Ci,
                             DTYPE *Y,  int ldY1,  int ldY2,  int ldY3,
                             DTYPE *Ac, DTYPE *Ctmp,
 		            int tformat, int CIB, int COB, int WOB, 
-			    int MR, int NR, int TH, 
-			    void (*kernel)(size_t , float *, float *, float *, float *, float *, size_t )) { 
+			    int MR, int NR, int TH, ukernel_asm ukr, ukernel_edge ukr_edge) {
 
   if (tformat == NCHW) {
     printf("1. Case not yet implemented %d\n", tformat); 
@@ -355,7 +355,7 @@ void convDirect_block_blis( int t,     int Co,   int Ci,
 
   DTYPE *Y_ptr;
 
-  if (TH == 1 && 0) {
+  if (TH == 1) {
     for ( h=0; h<t; h++ ) 
        for ( i=0,i2=0; i<Ci; i+=CIB,i2++ ) { 
          ib = min(Ci-i, CIB); 
@@ -374,16 +374,10 @@ void convDirect_block_blis( int t,     int Co,   int Ci,
 		       mr = min(min(kb, Wo-k-m+1)-ir, MR);
 		       Y_ptr=&Yrow_NHWC(h, j + jr, l, k + ir);
 
-                       if (mr == MR && nr == NR) {
-                         kernel(ib, &alpha, &FBrow_NHWC(j2 * Cob_Nr + jr2, i, n, m, 0), 
-		       	       &Ac[ir*ib], &beta, Y_ptr, ldY3 * sizeof(float));
-                       } else {
-                         kernel(ib, &alpha, &FBrow_NHWC(j2 * Cob_Nr + jr2, i, n, m, 0), 
-		               &Ac[ir*ib], &beta_edge, Ctmp, NR * sizeof(float));
-                         for (ju = 0; ju < mr; ju++)
-                           for (iu = 0; iu < nr; iu++)
-                             Y_ptr[ju * ldY3 + iu] = (beta) * Y_ptr[ju*ldY3 + iu] + Ctmp[ju * NR + iu];
-		       }
+		       if (mr == MR && nr == NR)
+                         ukr(ib, &alpha, &FBrow_NHWC(j2 * Cob_Nr + jr2, i, n, m, 0), &Ac[ir*ib], &beta, Y_ptr, ldY3 * sizeof(float));
+                       else
+                         ukr_edge(nr, mr, NR, MR, ib, &alpha, &FBrow_NHWC(j2 * Cob_Nr + jr2, i, n, m, 0), &Ac[ir*ib], &beta, Ctmp, Y_ptr, ldY3);
 
                      }
                    }
@@ -420,17 +414,13 @@ void convDirect_block_blis( int t,     int Co,   int Ci,
 	  	        mr = min(kb_limit-ir, MR);
 		        Y_ptr=&Yrow_NHWC(h, j + jr, l, k + ir);
                         
-                        if (mr == MR && nr == NR) {
-                          kernel(ib, &alpha, &FBrow_NHWC(j2 * Cob_Nr + jr2, i, n, m, 0), 
-		       	        &Ac[(th_id * CIB * WOB) + (ir * ib)], &beta, Y_ptr, ldY3 * sizeof(float));
-                        } else {
-                          kernel(ib, &alpha, &FBrow_NHWC(j2 * Cob_Nr + jr2, i, n, m, 0), 
-		                &Ac[(th_id * CIB * WOB) + (ir * ib)], &beta_edge, Ctmp_ptr, NR * sizeof(float));
-                          for (ju = 0; ju < mr; ju++)
-                            for (iu = 0; iu < nr; iu++)
-                              Y_ptr[ju * ldY3 + iu] = (beta) * Y_ptr[ju*ldY3 + iu] + Ctmp_ptr[ju * NR + iu];
-		        }
-  
+		       if (mr == MR && nr == NR)
+                         ukr(ib, &alpha, &FBrow_NHWC(j2 * Cob_Nr + jr2, i, n, m, 0), 
+			    &Ac[(th_id * CIB * WOB) + (ir*ib)], &beta, Y_ptr, ldY3 * sizeof(float));
+                       else
+                         ukr_edge(nr, mr, NR, MR, ib, &alpha, &FBrow_NHWC(j2 * Cob_Nr + jr2, i, n, m, 0), 
+				&Ac[(th_id * CIB * WOB) + (ir*ib)], &beta, Ctmp_ptr, Y_ptr, ldY3);
+
 	              }
                     }
                   }

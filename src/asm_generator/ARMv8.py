@@ -7,8 +7,8 @@ import common as cm
 #=====================================================================
 class ASM_ARMv8():
 
-    def __init__(self, MR, NR, arch, unroll, pipelining, tag=""):
-        self.tag        = tag
+    def __init__(self, MR, NR, arch, unroll, pipelining):
+        self.tag        = ""
         self.edge       = False
         self.vl         = 4  
         self.vr_max     = 32 
@@ -48,6 +48,7 @@ class ASM_ARMv8():
             self.edge = True
             self.mr   = new_MR
             self.nr   = new_NR
+            self.tag  = "_edge"
             return 1
         else:
             return -1
@@ -60,15 +61,7 @@ class ASM_ARMv8():
         self.fout.write(f"  .text\n")
         self.fout.write(f"  .align      5\n")
         self.fout.write(f"  .global     gemm_ukernel_asm_{self.mr}x{self.nr}\n")
-        self.fout.write(f"  //void gemm_ukernel_asm(size_t kc, float *alpha, float *a, float *b, float *beta, float *c, size_t ldC); \n")
-        self.fout.write(f"    // register arguments:\n")
-        self.fout.write(f"    // x0   kc\n")
-        self.fout.write(f"    // x1   alpha\n")
-        self.fout.write(f"    // x2   a\n")
-        self.fout.write(f"    // x3   b\n")
-        self.fout.write(f"    // x4   beta\n")
-        self.fout.write(f"    // x5   c\n")
-        self.fout.write(f"    // x6   ldC\n")
+        self.fout.write(f"  .global     gemm_ukernel_asm_edge_{self.mr}x{self.nr}\n\n")
 
     def registers_to_macros(self):
         MR = self.mr
@@ -83,7 +76,11 @@ class ASM_ARMv8():
         self.fout.write(f"  #define ldC        {self.r_ldC}\n")
         self.fout.write(f"  #define unroll     {self.r_unroll}\n")
         self.fout.write(f"  #define kc_iter    {self.r_kc_iter}\n")
-        self.fout.write(f"  #define kc_left    {self.r_kc_left}\n")
+        self.fout.write(f"  #define kc_left    {self.r_kc_left}\n\n")
+        
+        self.fout.write(f"  #define A_desp     {self.r_beta}\n")
+        self.fout.write(f"  #define B_desp     {self.r_ldC}\n")
+        self.fout.write(f"  #define buf_desp   {self.r_beta}\n")
         self.fout.write(f"\n")
 
         reg    = 10
@@ -137,8 +134,9 @@ class ASM_ARMv8():
             self.fout.write(f"\n")
               
             
-        self.fout.write(f"  #define TMP        s11\n")
-        self.fout.write(f"  #define BETA       s10\n")
+        self.fout.write(f"  #define TMP        s{vreg}\n")
+        vreg += 1
+        self.fout.write(f"  #define BETA       s{vreg}\n")
         self.fout.write(f"\n")
 
     def macro_loop_KC(self):
@@ -153,16 +151,26 @@ class ASM_ARMv8():
        
         #1-Load A
         desp = self.vl * self.data_type
+        mem_desp = 0
         for r in range(0, MR_rows):
-            self.fout.write(f"    ldr A{r}q,  [A_ptr]\n")
-            self.fout.write(f"    add A_ptr, A_ptr, #{desp}\n")
+            if (self.edge):
+                self.fout.write(f"    ldr A{r}q, [A_ptr, #{mem_desp}]\n")
+                mem_desp += desp
+            else:
+                self.fout.write(f"    ldr A{r}q, [A_ptr]\n")
+                self.fout.write(f"    add A_ptr, A_ptr, #{desp}\n")
         self.fout.write(f"\n")
 
         #2-Load B
         desp = self.vl * self.data_type
+        mem_desp = 0
         for c in range(0, NR_rows):
-            self.fout.write(f"    ldr B{c}q,  [B_ptr]\n")
-            self.fout.write(f"    add B_ptr, B_ptr, #{desp}\n")
+            if (self.edge):
+                self.fout.write(f"    ldr B{c}q, [B_ptr, #{mem_desp}]\n")
+                mem_desp += desp
+            else:
+                self.fout.write(f"    ldr B{c}q, [B_ptr]\n")
+                self.fout.write(f"    add B_ptr, B_ptr, #{desp}\n")
         self.fout.write(f"\n")
         
         #3-MAC-LOOP (B Loads + MAC)
@@ -173,19 +181,18 @@ class ASM_ARMv8():
    
         #4-Edge Call? Correct pointer position for A and B.
         if (self.edge):
-            inc = (self.orig_mr - self.mr) * self.data_type
-            if inc > 0:
-                self.fout.write(f"    add A_ptr, A_ptr, #{inc}\n")
-
-            inc = (self.orig_nr - self.nr) * self.data_type
-            if inc > 0:
-                self.fout.write(f"    add B_ptr, B_ptr, #{inc}\n")
+            self.fout.write(f"    add A_ptr, A_ptr, A_desp\n")
+            self.fout.write(f"    add B_ptr, B_ptr, B_desp\n")
         
         self.fout.write(f"  .endm\n")
         self.fout.write(f"\n")
 
     def start_function_stack(self):
-        self.fout.write(f"  gemm_ukernel_asm_{self.mr}x{self.nr}:\n")
+        if self.edge:
+            self.fout.write(f"  gemm_ukernel_asm_edge_{self.mr}x{self.nr}:\n")
+        else:
+            self.fout.write(f"  gemm_ukernel_asm_{self.mr}x{self.nr}:\n")
+
         self.fout.write(f"    add	sp, sp, #-(11 * 16)\n")
         self.fout.write(f"    stp	d8, d9,   [sp, #(0 * 16)]\n")
         self.fout.write(f"    stp	d10, d11, [sp, #(1 * 16)]\n")
@@ -202,7 +209,7 @@ class ASM_ARMv8():
 
 
     def end_function_stack(self):
-        self.fout.write(f"  END:\n")
+        self.fout.write(f"  END{self.tag}:\n")
         self.fout.write(f"    mov	x0, #0\n")
         self.fout.write(f"    ldp	d8, d9, [sp, #(0 * 16)]\n")
         self.fout.write(f"    ldp	d10, d11, [sp, #(1 * 16)]\n")
@@ -216,8 +223,7 @@ class ASM_ARMv8():
         self.fout.write(f"    ldp	x26, x27, [sp, #(9 * 16)]\n")
         self.fout.write(f"    ldr	x28,      [sp, #(10 * 16)]\n")
         self.fout.write(f"    add	sp, sp, #(11*16)\n")
-        self.fout.write(f"    ret\n")
-        self.fout.close() #End Mirco-kernel
+        self.fout.write(f"    ret\n\n")
 
     def C_address(self):
         MR = self.mr
@@ -225,7 +231,10 @@ class ASM_ARMv8():
 
         #C Address ldC strides
         for c in range(1, NR):
-            self.fout.write(f"    add C0{c}_ptr, C0{c-1}_ptr, ldC\n")
+            if (self.edge):
+                self.fout.write(f"    add C0{c}_ptr, C0{c-1}_ptr, buf_desp\n")
+            else:
+                self.fout.write(f"    add C0{c}_ptr, C0{c-1}_ptr, ldC\n")
         self.fout.write(f"\n")
 
     def load_C_to_vregs(self):
@@ -233,6 +242,14 @@ class ASM_ARMv8():
         NR = self.nr
         MR_rows = MR // self.vl
         NR_rows = NR // self.vl
+
+        if self.edge:
+            #BETA=0: Initialize Register to 0
+            for c in range(0, NR):
+                for r in range(0, MR_rows):
+                    self.fout.write(f"    movi C{r}{c}v, 0\n")
+            self.fout.write(f"\n")
+            return
 
         #---------------------------------------- 
         #ONLY FOR Software Pipelining
@@ -292,7 +309,7 @@ class ASM_ARMv8():
         NR = self.nr
         self.fout.write(f"  .S_LOOP_{MR}x{NR}{self.tag}:\n")
         self.fout.write(f"  .LOOP_{MR}x{NR}{self.tag}:\n")
-        self.fout.write(f"    KERNEL_{MR}x{NR}\n")
+        self.fout.write(f"    KERNEL_{MR}x{NR}{self.tag}\n")
         self.fout.write(f"    sub kc, kc, 1\n")
         self.fout.write(f"    cmp kc, 0\n")
         self.fout.write(f"    b.ne .LOOP_{MR}x{NR}{self.tag}\n")
@@ -412,15 +429,14 @@ class ASM_ARMv8():
         self.set_output()
         self.header()
         self.registers_to_macros()
-
-        if (self.edge) or (not self.pipelining):
+        if not self.pipelining:
             self.macro_loop_KC()
 
         self.start_function_stack()
         self.C_address()
         self.load_C_to_vregs()
 
-        if (not self.edge) and (self.pipelining):
+        if self.pipelining:
             self.loop_pipelining_KC()
         else:
             if (self.unroll == 0):
@@ -430,6 +446,19 @@ class ASM_ARMv8():
 
         self.store_C_from_vregs()
         self.end_function_stack()
+
+        #Generate Edge Micro-kernel
+        self.set_edge(self.orig_mr, self.orig_nr)
+        
+        self.macro_loop_KC()
+        self.start_function_stack()
+        self.C_address()
+        self.load_C_to_vregs()
+        self.simple_loop_KC()
+        self.store_C_from_vregs()
+        self.end_function_stack()
+
+        self.fout.close() #End Mirco-kernel, close file
 
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------

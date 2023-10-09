@@ -1,23 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <omp.h>
+
+#ifdef ARMV8
+  #include <arm_neon.h>
+#endif
 
 #include "dtypes.h"
 #include "formats.h"
 #include "arrays.h"
 #include "dtypes.h"
 
-#include "ukernels/gemm_blis_neon_fp32.h"
-#include "asm_generator/ukernels/gemm_ukernels_headers.h"
-
-#if TH != 1
-  #include <omp.h>
-#endif
-
-//#ifdef __NEON__
-//#else
-//  #include "gemm_blis_AVX512_fp32.h"
-//#endif
+#include "asm_generator/ukernels/gemm_ukernel_headers.h"
 
 #define min(a,b)     ( (a) > (b) ? (b) : (a) )
 
@@ -38,9 +33,6 @@ void gemm_reference( char, char, char,
 /* 		    DTYPE *, int, */
 /* 		    DTYPE, DTYPE *, int ); */
 
-void im2row(float *, int, float *,
-	    int, int, int, int, int, int, int, int, int,
-	    int, int, int, int, int);
 
 void convDirect_original( int, int, int,
                           int, int,
@@ -145,7 +137,7 @@ void convDirect_block_blis( int, int, int,
 			    DTYPE *, int, int, int, 
 			    DTYPE *, DTYPE *,
 			    int, int, int, int, int, int, int, 
-			    void (*kernel)(size_t , float *, float *, float *, float *, float *, size_t ));
+			    ukernel_asm ukr, ukernel_edge ukr_edge);
 
 
 void packRB( char, char, int, int, DTYPE *, int, DTYPE *, int);

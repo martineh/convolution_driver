@@ -148,6 +148,8 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
   strcpy(new_testConfig->ALG, argv[10]);
   strcpy(new_testConfig->GEMM, argv[11]);
 
+  new_testConfig->bestof = argv[12][0];
+
   sprintf(format_str, "%s", "NHWC");
 
   sprintf(algorithm, "%s", new_testConfig->ALG);
@@ -155,9 +157,10 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
 
   printf("\n");
   printf(" +==================================================================================================================+\n");
-  printf(" |%s                                           TEST PARAMETERS CONFIGURATION                                          %s|\n", COLOR_BOLDYELLOW, COLOR_RESET);
+  printf(" |%s                                                 TEST CONFIGURATION                                               %s|\n", COLOR_BOLDYELLOW, COLOR_RESET);
   printf(" +=====================================+============================================================================+\n");
   printf(" |  [%s*%s] Matrix Format Selected         |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, format_str);
+  printf(" |  [%s*%s] Test Minimum Time              |  %-74.2f|\n",  COLOR_BOLDYELLOW, COLOR_RESET, new_testConfig->tmin);
   printf(" |  [%s*%s] Test Verification              |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[4][0] == 'T' ? "ON" : "OFF");
   printf(" |  [%s*%s] Mode Debug                     |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[5][0] == 'T' ? "ON" : "OFF");
   printf(" |  [%s*%s] Configuration Selected         |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[2]);
@@ -167,6 +170,7 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
   if (strcmp("LOWERING", new_testConfig->ALG)==0)
     printf(" |  [%s*%s] GEMM Selected                  |  %s%-74s%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDCYAN, kernel, COLOR_RESET);
   printf(" |  [%s*%s] Threads Number                 |  %s%-74d%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDCYAN, new_testConfig->TH, COLOR_RESET);
+  printf(" |  [%s*%s] Best Of Micro-kernels          |  %s%-74s%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDCYAN, argv[12][0] == 'T' ? "ON" : "OFF", COLOR_RESET);
   printf(" +=====================================+============================================================================+\n\n");
 
   if ((new_testConfig->debug == 'T') && (new_testConfig->test != 'T')) {

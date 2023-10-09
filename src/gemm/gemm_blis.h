@@ -3,7 +3,7 @@
 #include <math.h>
 
 #include "dtypes.h"
-#include "../asm_generator/ukernels/gemm_ukernels_headers.h"
+#include "../asm_generator/ukernels/gemm_ukernel_headers.h"
 
 #if TH != 1
   #include <omp.h>
@@ -35,7 +35,7 @@ void gemm_blis_B3A2C0( char, char, char, char, char, size_t, size_t, size_t,
 		       DTYPE, DTYPE *, size_t, DTYPE *, size_t, 
 		       DTYPE, DTYPE *, size_t, DTYPE *, DTYPE *, size_t, 
 		       size_t, size_t, int, int, int, DTYPE *,
-		       void (*kernel)(size_t , float *, float *, float *, float *, float *, size_t ));
+		       ukernel_asm ukr, ukernel_edge ukr_edge);
 
 void gemm_blis_A3B2C0( char, char, char, char, char, size_t , size_t, size_t, 
 		       DTYPE, DTYPE *, size_t, DTYPE *, size_t, 

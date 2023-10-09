@@ -46,7 +46,7 @@ void gemm_blis_B3A2C0( char orderA, char orderB, char orderC,
 		       DTYPE *Ac, DTYPE *Bc, 
                        size_t MC, size_t NC, size_t KC, 
 		       int MR, int NR, int TH, DTYPE *Ctmp,
-		       void (*kernel)(size_t , float *, float *, float *, float *, float *, size_t )) {
+		       ukernel_asm ukr, ukernel_edge ukr_edge) {
 
   int    ic, jc, pc, mc, nc, kc, ir, jr, mr, nr, j, i; 
   DTYPE  zero = 0.0, one = 1.0, betaI; 
@@ -81,21 +81,20 @@ void gemm_blis_B3A2C0( char orderA, char orderB, char orderC,
           mc = min(m-ic, MC); 
           Aptr = &Acol(ic, pc);
           pack_RB( orderA, transA, mc, kc, Aptr, ldA, Ac, MR);
-          for ( jr=0; jr<nc; jr+=NR ) {
+          
+          for (jr=0; jr<nc; jr+=NR ) {
             nr = min(nc-jr, NR); 
-            for ( ir=0; ir<mc; ir+=MR ) {
+            for (ir=0; ir<mc; ir+=MR ) {
               mr = min(mc-ir, MR); 
-                Cptr = &Ccol(ic+ir,jc+jr);
-  	      if (mr == MR && nr == NR) {
-                kernel(kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &betaI, Cptr, ldC * sizeof(float));
-              } else {
-                kernel(kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &beta_edge, Ctmp, MR * sizeof(float));
-                for (j = 0; j < nr; j++)
-                  for (i = 0; i < mr; i++)
-                    Cptr[j*ldC + i] = (betaI) * Cptr[j*ldC + i] + Ctmp[j * MR + i];
-              }
+              Cptr = &Ccol(ic+ir,jc+jr);
+	      
+  	      if (mr == MR && nr == NR)
+                ukr(kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &betaI, Cptr, ldC * sizeof(float));
+              else
+	        ukr_edge(mr, nr, MR, NR, kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &betaI, Ctmp, Cptr, ldC);
             }
           }
+
         }
       }
     }
@@ -132,18 +131,14 @@ void gemm_blis_B3A2C0( char orderA, char orderB, char orderC,
 
               for ( ir=0; ir<mc; ir+=MR ) {
                 mr = min(mc-ir, MR); 
-
                 Cptr = &Ccol(ic+ir,jc+jr);
 
-	        if (mr == MR && nr == NR) {
-                  kernel(kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &betaI, Cptr, ldC * sizeof(float));
-                } else {
+  	        if (mr == MR && nr == NR)
+                  ukr(kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &betaI, Cptr, ldC * sizeof(float));
+                else {
 	          Ctmp_th = &Ctmp[th_id * MR * NR];
-                  kernel(kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &beta_edge, Ctmp_th, MR * sizeof(float));
-                  for (j = 0; j < nr; j++)
-                    for (i = 0; i < mr; i++)
-                      Cptr[j*ldC + i] = (betaI) * Cptr[j*ldC + i] + Ctmp_th[j * MR + i];
-                }
+		  ukr_edge(mr, nr, MR, NR, kc, &alpha, &Ac[ir*kc], &Bc[jr*kc], &betaI, Ctmp_th, Cptr, ldC);
+		}
 
               }
             }
