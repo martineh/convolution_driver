@@ -7,6 +7,17 @@ import ARMv8
 import RISCV
 import common as cm
 
+class bcolor:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 def check_MR_NR(asm, arch):
     vr_max = asm.vr_max
     
@@ -90,7 +101,6 @@ if __name__ == "__main__":
     if (gather) and (arch != "riscv"):
         print ("Error: Gather option only available with RISCV architecture.")
         sys.exit(-1)
-
     if (reorder) and (arch != "riscv"):
         print ("Error: Reorder option only available with RISCV architecture.")
         sys.exit(-1)
@@ -104,25 +114,43 @@ if __name__ == "__main__":
             
     cm.clear_path()
     msg = ""
-    print ("\n-------------------------------------------------------------")
-    print ("Generating Micro-kernels")
-    print ("-------------------------------------------------------------")
-    print ("    [*] ASM Architecture               : %s" % (arch))
+    print ("\n")
+    print ("+============================================================+")
+    print ("|                  MICRO-KERNELS GENERATOR                   |")
+    print ("+============================================================+")
+    print ("|    [*] ASM Architecture               | %-18s |" % (arch))
     if unroll == 0:
         msg = "Disable"
-        if pipelining:
-            msg = "x2 Factor"
+        if pipelining: msg = "x2 Factor"
     else:
         msg = "x%d Factor" % (unroll)
-    print ("    [*] Unroll                         : %s" % (msg))
-    if pipelining:
-        msg = "Enable"
-    else:
-        msg = "Disable"
-    print ("    [*] Software pipelining            : %s" % (msg))
-    print ("-------------------------------------------------------------")
+    print ("|    [*] Unroll                         | %-18s |" % (msg))
+    if pipelining: 
+        msg = "Enable" 
+    else: msg = "Disable"
+
+    print ("|    [*] Software pipelining            | %-18s |" % (msg))
+    if (arch == "riscv") :
+        if reorder: 
+            msg = "Enable" 
+        else: msg = "Disable"
+        print ("|    [*] Reorder A-B Loads              | %-18s |" % (msg))
+        
+        if gather: 
+            msg = "Enable" 
+        else: msg = "Disable"
+        print ("|    [*] Gather                         | %-18s |" % (msg))
+        
+        if broadcast: 
+            msg = "Enable" 
+        else: msg = "Disable"
+        print ("|    [*] Broadcast                      | %-18s |" % (msg))
+    print ("+=======================================+====================+")
+
     print ("")
-    
+    print ("+=================================================+=====+====+")
+    print ("|               MICRO-KERNELS GENERATED           |  MR | NR |")
+    print ("+=================================================+=====+====+")
     for mr in range(4, 24, 4):
         for nr in range(4, 24, 4):
             MR = mr
@@ -141,10 +169,11 @@ if __name__ == "__main__":
                 #----------------------------------------------------------------
                 #Generating micro-kernel
                 #----------------------------------------------------------------
-                print(f"Generating {MR}x{NR}...")
                 asm.generate_umicro()
                 cm.generate_edge_function(asm)
                 cm.generate_selector_function(asm)
+                print(f"|    [*] Micro-kernel                             | %s%-3d%s | %s%-3d%s|" % (bcolor.OKCYAN, MR, bcolor.ENDC, bcolor.OKCYAN, NR, bcolor.ENDC))
                 #----------------------------------------------------------------
             
     cm.generate_selector_function(asm, close=True)
+    print ("+=================================================+=====+====+\n")
