@@ -9,21 +9,39 @@ arch=$(shell uname -p)
 ifneq ($(arch), aarch64)
 	CC       = riscv64-unknown-elf-gcc
 	CLINKER  = riscv64-unknown-elf-gcc
-	#FLAGS   +=  -O3 -fopenmp -march=rv64imafdcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c910
+	#OPTFLAGS   +=  -O3 -fopenmp -march=rv64imafdcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c910
+	OPTFLAGS = -O3 -DFP32
 else
 	CC       = gcc
 	CLINKER  = gcc
-	OPTFLAGS = -march=armv8-a -O3 -fopenmp -DCHECK -DARMV8 -DFP32
+	OPTFLAGS = -march=armv8-a -O3 -DCHECK -DARMV8 -DFP32
 endif
 #------------------------------------------
+
+ifeq ($(OMP_ENABLE), T)
+  OPTFLAGS += -fopenmp -DOMP_ENABLE
+endif
 
 OBJDIR = build
 BIN    = convolution_driver.x
 
 #------------------------------------------
 LIBS = -lm
-INCLUDE += -I$(BLIS_HOME)/include/blis/ 
-INCLUDE += -I$(OPENBLAS_HOME)/include/
+
+LIBS_LINKER = $(LIBS)
+INCLUDE = 
+
+ifeq ($(BLIS_ENABLE), T)
+	INCLUDE     = -I$(BLIS_HOME)/include/blis/ 
+	LIBS_LINKER = $(OPENBLAS_HOME)/lib/libopenblas.a $(LIBS_LINKER)
+	OPTFLAGS    = $(OPTFLAGS) -DENABLE_BLIS
+endif
+
+ifeq ($(OPENBLAS_ENABLE), T)
+	INCLUDE     = -I$(OPENBLAS_HOME)/include/ $(INCLUDE)
+	OPTFLAGS    = $(OPTFLAGS) -DENABLE_BLIS
+	OPTFLAGS    = $(OPTFLAGS) -DENABLE_OPENBLAS
+endif
 #------------------------------------------
 
 SRC_ASM_FILES = $(wildcard ./src/asm_generator/ukernels/*.S)
@@ -45,7 +63,7 @@ OBJ_FILES  = $(OBJDIR)/model_level.o $(OBJDIR)/selector_ukernel.o $(OBJDIR)/gemm
 all: $(OBJDIR)/$(BIN)
 
 $(OBJDIR)/$(BIN): $(OBJ_FILES)
-	$(CLINKER) $(OPTFLAGS) -o $@ $^ $(OPENBLAS_HOME)/lib/libopenblas.a $(BLIS_HOME)/lib/libblis.a $(LIBS)
+	$(CLINKER) $(OPTFLAGS) -o $@ $^ $(LIBS_LINKER)
 
 $(OBJDIR)/%.o: ./src/%.c
 	$(CC) $(CFLAGS) $(OPTFLAGS) -c -o $@ $< $(INCLUDE) $(LIBS)

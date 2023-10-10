@@ -7,8 +7,8 @@ import common as cm
 #=====================================================================
 class ASM_RISCV():
 
-    def __init__(self, MR, NR, arch, broadcast, gather, reorder, unroll, pipelining, tag=""):
-        self.tag         = tag
+    def __init__(self, MR, NR, arch, broadcast, gather, reorder, unroll, pipelining):
+        self.tag         = ""
         self.edge        = False
         self.vl          = 4  #Register line size
         self.vr_max      = 32 #Maximum number of vectorial registers
@@ -28,8 +28,8 @@ class ASM_RISCV():
         self.mr        = MR
         self.nr        = NR
         
-        self.a_dsp       = (MR // self.vl) * (self.data_type * self.vl) #=MR * self.data_type
-        self.b_dsp       = (NR // self.vl) * (self.data_type * self.vl) #=NR * self.data_type
+        self.a_dsp     = (MR // self.vl) * (self.data_type * self.vl) #=MR * self.data_type
+        self.b_dsp     = (NR // self.vl) * (self.data_type * self.vl) #=NR * self.data_type
 
         self.broadcast = broadcast
         self.gather    = gather
@@ -46,29 +46,27 @@ class ASM_RISCV():
         self.r_kc_iter = "t1"
         self.r_kc_left = "t2"
     
-        self.regs   = ["t0",  "t1",  "t2",  "t3",  "t4",  "t5",  "t6",  "s0", 
-                       "s1",  "s2",  "s3",  "s4",  "s5",  "s6",  "s7",  "s8", 
-                       "s9",  "s10", "s11"]
+        self.regs      = ["t0",  "t1",  "t2",  "t3",  "t4",  "t5",  "t6",  "s0", 
+                          "s1",  "s2",  "s3",  "s4",  "s5",  "s6",  "s7",  "s8", 
+                          "s9",  "s10", "s11"]
     
-        self.v_regs = ["v0",  "v1",  "v2",  "v3",  "v4",  "v5",  "v6",  "v7",  "v8",  "v9",
-                       "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19",
-                       "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29",
-                       "v30", "v31"]
+        self.v_regs    = ["v0",  "v1",  "v2",  "v3",  "v4",  "v5",  "v6",  "v7",  "v8",  "v9",
+                          "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19",
+                          "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29",
+                          "v30", "v31"]
     
-        self.tmp_regs = ["ft0", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7",
-                         "fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
+        self.tmp_regs  = ["ft0", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7",
+                          "fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
         
         self.AB_vreg = 0
-
-        #Micro-Kernel Output Files
         self.fout = None
-        cm.clear_path()
 
-    def set_edge(self, new_MR, new_NR):
+    def __set_edge(self, new_MR, new_NR):
         if  (new_MR != 0) and (new_NR != 0) and (new_MR % self.vl == 0) :
             self.edge = True
             self.mr   = new_MR
             self.nr   = new_NR
+            self.tag  = "_edge"
             return 1
         else:
             return -1
@@ -82,6 +80,8 @@ class ASM_RISCV():
         self.fout.write(f"  .text\n")
         self.fout.write(f"  .align      2\n")
         self.fout.write(f"  .global     gemm_ukernel_asm_{self.mr}x{self.nr}\n")
+        self.fout.write(f"  .global     gemm_ukernel_asm_edge_{self.mr}x{self.nr}\n\n")
+
         self.fout.write(f"  //void gemm_ukernel_asm(size_t kc, float *alpha, float *a, float *b, float *beta, float *c, size_t ldC); \n")
         self.fout.write(f"    // register arguments:\n")
         self.fout.write(f"    // a0   kc\n")
@@ -107,6 +107,10 @@ class ASM_RISCV():
         self.fout.write(f"  #define unroll     {self.r_unroll}\n")
         self.fout.write(f"  #define kc_iter    {self.r_kc_iter}\n")
         self.fout.write(f"  #define kc_left    {self.r_kc_left}\n")
+        
+        self.fout.write(f"  #define A_desp     {self.r_beta}\n")
+        self.fout.write(f"  #define B_desp     {self.r_ldC}\n")
+        self.fout.write(f"  #define buf_desp   {self.r_beta}\n")
         self.fout.write(f"\n")
         
         reg    = 3
@@ -253,12 +257,18 @@ class ASM_RISCV():
 
     def __updateA_address(self):
         for r in range(0, self.mr // self.vl):
-            self.fout.write(f"    ADDI A{r}_ptr, A{r}_ptr, {self.a_dsp}\n")
+            if self.edge:
+                self.fout.write(f"    ADD A{r}_ptr, A{r}_ptr, A_desp\n")
+            else:
+                self.fout.write(f"    ADDI A{r}_ptr, A{r}_ptr, {self.a_dsp}\n")
 
 
     def __updateB_address(self):
         for r in range(0, self.nr // self.vl):
-            self.fout.write(f"    ADDI B{r}_ptr, B{r}_ptr, {self.b_dsp}\n")
+            if self.edge:
+                self.fout.write(f"    ADD B{r}_ptr, B{r}_ptr, B_desp\n")
+            else:
+                self.fout.write(f"    ADDI B{r}_ptr, B{r}_ptr, {self.b_dsp}\n")
         self.fout.write(f"\n")
 
 
@@ -304,7 +314,7 @@ class ASM_RISCV():
 
 
     def __macro_loop_KC(self):
-        self.fout.write(f"  .macro KERNEL_{self.mr}x{self.nr}\n")
+        self.fout.write(f"  .macro KERNEL_{self.mr}x{self.nr}{self.tag}\n")
 
         self.__loop_kc()
     
@@ -313,9 +323,9 @@ class ASM_RISCV():
 
 
     def __loop_pipelining_KC(self):
-        self.fout.write(f"  PREV_LOOP_{self.mr}x{self.nr}:\n")
-        self.fout.write(f"    BEQ kc_iter, zero, LOOP_LEFT_{self.mr}x{self.nr}\n")
-        self.fout.write(f"  LOOP_{self.mr}x{self.nr}:\n")
+        self.fout.write(f"  PREV_LOOP_{self.mr}x{self.nr}{self.tag}:\n")
+        self.fout.write(f"    BEQ kc_iter, zero, LOOP_LEFT_{self.mr}x{self.nr}{self.tag}\n")
+        self.fout.write(f"  LOOP_{self.mr}x{self.nr}{self.tag}:\n")
  
         #Iteration x1
         self.__loop_kc(prfm=True)
@@ -324,11 +334,11 @@ class ASM_RISCV():
         self.__loop_kc(prfm=False)
  
         self.fout.write(f"    ADDI kc_iter, kc_iter, -1\n")
-        self.fout.write(f"    BNE kc_iter, zero, LOOP_{self.mr}x{self.nr}\n")
+        self.fout.write(f"    BNE kc_iter, zero, LOOP_{self.mr}x{self.nr}{self.tag}\n")
         self.fout.write(f"\n")
   
-        self.fout.write(f"    BEQ kc_left, zero, STORE_{self.mr}x{self.nr}\n")
-        self.fout.write(f"  LOOP_LEFT_{self.mr}x{self.nr}:\n")
+        self.fout.write(f"    BEQ kc_left, zero, STORE_{self.mr}x{self.nr}{self.tag}\n")
+        self.fout.write(f"  LOOP_LEFT_{self.mr}x{self.nr}{self.tag}:\n")
 
         if (self.gather):
             for c in range(0, self.nr):
@@ -351,7 +361,10 @@ class ASM_RISCV():
 
 
     def __start_function_stack(self):
-        self.fout.write(f"  gemm_ukernel_asm_{self.mr}x{self.nr}:\n")
+        if self.edge:
+            self.fout.write(f"  gemm_ukernel_asm_edge_{self.mr}x{self.nr}:\n")
+        else:
+            self.fout.write(f"  gemm_ukernel_asm_{self.mr}x{self.nr}:\n")
         self.fout.write(f"    //Stack save registers\n")
         self.fout.write(f"    ADDI sp, sp, -56\n")
         self.fout.write(f"    SD s6,  48(sp)\n")
@@ -365,7 +378,7 @@ class ASM_RISCV():
     
     
     def __end_function_stack(self):
-        self.fout.write(f"  END:\n")
+        self.fout.write(f"  END{self.tag}:\n")
         self.fout.write(f"    //Stack restore registers\n");
         self.fout.write(f"    LD s6, 48(sp)\n");
         self.fout.write(f"    LD s5, 40(sp)\n");
@@ -375,7 +388,7 @@ class ASM_RISCV():
         self.fout.write(f"    LD s1,  8(sp)\n");
         self.fout.write(f"    LD s0,  0(sp)\n");
         self.fout.write(f"    ADDI sp, sp, 56\n");
-        self.fout.write(f"    ret\n");
+        self.fout.write(f"    ret\n\n");
     
     
     def __set_vl(self):
@@ -389,7 +402,10 @@ class ASM_RISCV():
         NR = self.nr
         #C Address ldC strides
         for c in range(1, NR):
-            self.fout.write(f"    ADD C0{c}_ptr, C0{c-1}_ptr, ldC\n")
+            if (self.edge):
+                self.fout.write(f"    ADD C0{c}_ptr, C0{c-1}_ptr, buf_desp\n")
+            else:
+                self.fout.write(f"    ADD C0{c}_ptr, C0{c-1}_ptr, ldC\n")
         self.fout.write(f"\n")
     
    
@@ -413,6 +429,19 @@ class ASM_RISCV():
         MR_rows = MR // self.vl
         NR_rows = NR // self.vl
           
+        if self.edge:
+            for c in range(0, NR):
+                self.fout.write(f"    VXOR C0{c}, C0{c}, C0{c}\n")
+                desp = 0
+                for r in range(1, MR_rows):
+                    self.fout.write(f"    VXOR C{r}{c}, C{r}{c}, C{r}{c}\n")
+                    desp += self.vl * self.data_type
+                if desp > 0:
+                    self.fout.write(f"    ADDI C0{c}_ptr, C0{c}_ptr, {desp}\n")
+                self.fout.write(f"\n")
+            self.fout.write(f"\n")
+            return
+
         #---------------------------------------- 
         #Software pipelining and unroll controll
         #---------------------------------------- 
@@ -439,7 +468,7 @@ class ASM_RISCV():
         self.fout.write(f"    FCVT  ft8, zero\n")
         self.fout.write(f"    FLW   BETA, (beta_ptr)\n")
         self.fout.write(f"    FEQ   TMP, BETA, ft8\n")
-        self.fout.write(f"    BEQ   TMP, zero, LOAD_{self.mr}x{self.nr}\n")
+        self.fout.write(f"    BEQ   TMP, zero, LOAD_{self.mr}x{self.nr}{self.tag}\n")
         self.fout.write(f"\n")
          
         #BETA=0: Initialize Register to 0
@@ -457,7 +486,7 @@ class ASM_RISCV():
         self.fout.write(f"\n")
     
         #BETA=1: Store C to registers
-        self.fout.write(f"  LOAD_{MR}x{NR}:\n")
+        self.fout.write(f"  LOAD_{MR}x{NR}{self.tag}:\n")
         for c in range(0, NR):
             self.fout.write(f"    LOAD C0{c}, (C0{c}_ptr)\n")
             desp = self.vl * self.data_type
@@ -470,33 +499,33 @@ class ASM_RISCV():
     
    
     def __simple_loop_KC(self):
-        self.fout.write(f"  PREV_LOOP_{self.mr}x{self.nr}:\n")
-        self.fout.write(f"  LOOP_{self.mr}x{self.nr}:\n")
-        self.fout.write(f"    KERNEL_{self.mr}x{self.nr}\n")
+        self.fout.write(f"  PREV_LOOP_{self.mr}x{self.nr}{self.tag}:\n")
+        self.fout.write(f"  LOOP_{self.mr}x{self.nr}{self.tag}:\n")
+        self.fout.write(f"    KERNEL_{self.mr}x{self.nr}{self.tag}\n")
         self.fout.write(f"    ADDI kc, kc, -1\n")
-        self.fout.write(f"    BNE kc, zero, LOOP_{self.mr}x{self.nr}\n")
+        self.fout.write(f"    BNE kc, zero, LOOP_{self.mr}x{self.nr}{self.tag}\n")
         self.fout.write(f"\n")
 
 
     def __unroll_loop_KC(self):
-        self.fout.write(f"  PREV_LOOP_{self.mr}x{self.nr}:\n")
-        self.fout.write(f"    BEQ kc_iter, zero, LOOP_LEFT_{self.mr}x{self.nr}\n")
-        self.fout.write(f"  LOOP_{self.mr}x{self.nr}:\n")
+        self.fout.write(f"  PREV_LOOP_{self.mr}x{self.nr}{self.tag}:\n")
+        self.fout.write(f"    BEQ kc_iter, zero, LOOP_LEFT_{self.mr}x{self.nr}{self.tag}\n")
+        self.fout.write(f"  LOOP_{self.mr}x{self.nr}{self.tag}:\n")
         for i in range(0,self.unroll):
-            self.fout.write(f"    KERNEL_{self.mr}x{self.nr}\n")
+            self.fout.write(f"    KERNEL_{self.mr}x{self.nr}{self.tag}\n")
         self.fout.write(f"    ADDI kc_iter, kc_iter, -1\n")
-        self.fout.write(f"    BNE  kc_iter, zero, LOOP_{self.mr}x{self.nr}\n")
+        self.fout.write(f"    BNE  kc_iter, zero, LOOP_{self.mr}x{self.nr}{self.tag}\n")
         self.fout.write(f"\n")
-        self.fout.write(f"    BEQ kc_left, zero, STORE_{self.mr}x{self.nr}\n")
-        self.fout.write(f"  LOOP_LEFT_{self.mr}x{self.nr}:\n")
-        self.fout.write(f"    KERNEL_{self.mr}x{self.nr}\n")
+        self.fout.write(f"    BEQ kc_left, zero, STORE_{self.mr}x{self.nr}{self.tag}\n")
+        self.fout.write(f"  LOOP_LEFT_{self.mr}x{self.nr}{self.tag}:\n")
+        self.fout.write(f"    KERNEL_{self.mr}x{self.nr}{self.tag}\n")
         self.fout.write(f"    ADDI kc_left, kc_left, -1\n")
-        self.fout.write(f"    BNE kc_left, zero, LOOP_LEFT_{self.mr}x{self.nr}\n")
+        self.fout.write(f"    BNE kc_left, zero, LOOP_LEFT_{self.mr}x{self.nr}{self.tag}\n")
         self.fout.write(f"\n")
         
     
     def __store_C_from_vregs(self):
-        self.fout.write(f"  STORE_{self.mr}x{self.nr}:\n")
+        self.fout.write(f"  STORE_{self.mr}x{self.nr}{self.tag}:\n")
         for c in range(0, self.nr):
             self.fout.write(f"    STORE C{self.mr // self.vl - 1}{c}, (C0{c}_ptr)\n")
             desp = self.vl * self.data_type
@@ -513,7 +542,7 @@ class ASM_RISCV():
         self.__header()
         self.__registers_to_macros()
 
-        if (self.edge) or (not self.pipelining):
+        if (not self.pipelining):
             self.__macro_loop_KC()
 
         self.__start_function_stack()
@@ -522,7 +551,7 @@ class ASM_RISCV():
         self.__C_address()
         self.__load_C_to_vregs()
 
-        if (not self.edge) and (self.pipelining):
+        if (self.pipelining):
             self.__loop_pipelining_KC()
         else:
             if (self.unroll == 0):
@@ -532,6 +561,20 @@ class ASM_RISCV():
 
         self.__store_C_from_vregs()
         self.__end_function_stack()
+        
+        #Generate Edge Micro-kernel
+        self.__set_edge(self.orig_mr, self.orig_nr)
+        self.__macro_loop_KC()
+        self.__start_function_stack()
+        self.__set_vl()
+        self.__AB_address()
+        self.__C_address()
+        self.__load_C_to_vregs()
+        self.__simple_loop_KC()
+        self.__store_C_from_vregs()
+        self.__end_function_stack()
+        
+        self.fout.close() #End Mirco-kernel, close file
     
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------

@@ -5,11 +5,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifdef RISCV
-  #include "archs/riscv.h"
-#elif ARMV8
+#if ARMV8
   //#include "archs/arm_agx_orin.h"
   #include "archs/arm_carmel.h"
+#else
+  #include "archs/riscv.h"
 #endif
 
 #ifndef min

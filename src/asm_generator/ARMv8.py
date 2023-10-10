@@ -429,14 +429,14 @@ class ASM_ARMv8():
         self.set_output()
         self.header()
         self.registers_to_macros()
-        if not self.pipelining:
+        if (not self.pipelining):
             self.macro_loop_KC()
 
         self.start_function_stack()
         self.C_address()
         self.load_C_to_vregs()
 
-        if self.pipelining:
+        if (self.pipelining):
             self.loop_pipelining_KC()
         else:
             if (self.unroll == 0):

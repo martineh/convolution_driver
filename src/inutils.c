@@ -123,7 +123,7 @@ void set_CNN(int col, int cnn_num, char *tmp, int type, cnn_t *cnn) {
 
 testConfig_t* new_CNN_Test_Config(char * argv[]) {
   FILE *fd_conf = fopen(argv[2], "r"); //open config file
-  char * line = NULL;
+  char line[512];
   size_t len = 0;
   ssize_t read;
   const char delimiter[] = "\t";
@@ -191,7 +191,7 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
   else
     type = BATCH_TYPE;
   
-  while ((read = getline(&line, &len, fd_conf)) != -1)
+  while (fgets(line, 512, fd_conf) != NULL)
     if (line[0] != '#') {      
       col = 0;
       tmp = strtok(line, delimiter);

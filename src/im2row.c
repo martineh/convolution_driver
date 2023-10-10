@@ -9,7 +9,9 @@ void im2row(DTYPE *rows, int ld, DTYPE *in,
   int b, x, y, row, kx, ix, ky, iy, c, col;
  
   for (b = 0; b < batch; b++)
-    #pragma omp parallel for private (y, row, kx, ix, ky, iy, c, col)
+    #ifdef OMP_ENABLE
+      #pragma omp parallel for private (y, row, kx, ix, ky, iy, c, col)
+    #endif
     for (x = 0; x < oheight; x++)
       for (y = 0; y < owidth; y++) {
 	row = b * oheight * owidth + x * owidth + y;

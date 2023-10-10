@@ -172,6 +172,7 @@ def generate_selector_function(asm, close=False):
         fdout.write("  if (MR == %d && NR == %d) {\n" % (MR, NR))
         fdout.write("    (*ukr)      = &gemm_ukernel_asm_%dx%d;\n" % (MR, NR))
         fdout.write("    (*ukr_edge) = &gemm_ukernel_edge_%dx%d;\n" % (MR, NR))
+        add_header=False
 
     if add_header:
         fdout.write("  } else if (MR == %d && NR == %d) {\n" % (MR, NR))

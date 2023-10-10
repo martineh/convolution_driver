@@ -100,9 +100,15 @@ void gemm_blis_B3A2C0( char orderA, char orderB, char orderC,
     }
   
   } else {
-    #pragma omp parallel num_threads(TH) private(jc, nc, pc, kc, Bptr, ic, mc, Aptr, Cptr, Ctmp_th, jr, nr, ir, mr)
+    int th_id;
+    #ifdef OMP_ENABLE
+    #pragma omp parallel num_threads(TH) private(jc, nc, pc, kc, Bptr, ic, mc, Aptr, Cptr, Ctmp_th, jr, nr, ir, mr, th_id)
     {
-      int th_id = omp_get_thread_num();
+      th_id = omp_get_thread_num();
+    #else
+      printf("ERROR: Parallel option configured but not compiled\n"); 
+      exit(-1);
+    #endif
       for ( jc=0; jc<n; jc+=NC ) {
         nc = min(n-jc, NC); 
         int its_nc = (int) ceil((double)nc/NR/TH);
@@ -125,7 +131,9 @@ void gemm_blis_B3A2C0( char orderA, char orderB, char orderC,
             pack_RB( orderA, transA, min(its_mc * MR, mc - its_mc * MR * th_id), kc, 
 		     Aptr, ldA, Ac + kc * its_mc * MR * th_id, MR);
 
+            #ifdef OMP_ENABLE
 	    #pragma omp barrier
+            #endif
             for ( jr=th_id*(its_nc*NR); jr<min(nc,(th_id+1)*(its_nc*NR)); jr+=NR ) {
               nr = min(nc-jr, NR); 
 
@@ -142,12 +150,16 @@ void gemm_blis_B3A2C0( char orderA, char orderB, char orderC,
 
               }
             }
+            #ifdef OMP_ENABLE
 	    #pragma omp barrier
+            #endif
           }
         }
       }
     }
+    #ifdef OMP_ENABLE
   }
+    #endif
 
 }
 

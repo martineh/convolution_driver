@@ -20,10 +20,10 @@ class bcolor:
 
 def check_MR_NR(asm, arch):
     vr_max = asm.vr_max
-    
+   
     #Check Line Size integrity
     if (asm.mr % asm.vl != 0) or (asm.mr <= 0) or (asm.nr <= 0): return -1
-    if (NR % asm.vl != 0): return -2
+    if (arch == "armv8") and (NR % asm.vl != 0): return -2
     if (arch == "riscv") and (asm.nr > len(asm.tmp_regs)): return -3
 
     #Register utilization
@@ -151,29 +151,42 @@ if __name__ == "__main__":
     print ("+=================================================+=====+====+")
     print ("|               MICRO-KERNELS GENERATED           |  MR | NR |")
     print ("+=================================================+=====+====+")
-    for mr in range(4, 24, 4):
-        for nr in range(4, 24, 4):
-            MR = mr
-            NR = nr
-            
-            #Set configutation
-            asm = None
-            if arch == "riscv":
+    if arch == "riscv":
+        for mr in range(4, 24, 4):
+            for nr in range(4, 10, 4):
+                MR = mr
+                NR = nr
                 asm = RISCV.ASM_RISCV(MR, NR, arch, broadcast, gather, reorder, unroll, pipelining)
-            else:
+                tot_vregs = check_MR_NR(asm, arch)
+            
+                if tot_vregs > 0:
+                    #----------------------------------------------------------------
+                    #Generating micro-kernel
+                    #----------------------------------------------------------------
+                    asm.generate_umicro()
+                    cm.generate_edge_function(asm)
+                    cm.generate_selector_function(asm)
+                    print(f"|    [*] Micro-kernel                             | %s%-3d%s | %s%-3d%s|" % (bcolor.OKCYAN, MR, bcolor.ENDC, bcolor.OKCYAN, NR, bcolor.ENDC))
+                    #----------------------------------------------------------------
+            
+        cm.generate_selector_function(asm, close=True)
+    else:
+        for mr in range(4, 24, 4):
+            for nr in range(4, 24, 4):
+                MR = mr
+                NR = nr
                 asm = ARMv8.ASM_ARMv8(MR, NR, arch, unroll, pipelining)
+                tot_vregs = check_MR_NR(asm, arch)
             
-            tot_vregs = check_MR_NR(asm, arch)
+                if tot_vregs > 0:
+                    #----------------------------------------------------------------
+                    #Generating micro-kernel
+                    #----------------------------------------------------------------
+                    asm.generate_umicro()
+                    cm.generate_edge_function(asm)
+                    cm.generate_selector_function(asm)
+                    print(f"|    [*] Micro-kernel                             | %s%-3d%s | %s%-3d%s|" % (bcolor.OKCYAN, MR, bcolor.ENDC, bcolor.OKCYAN, NR, bcolor.ENDC))
+                    #----------------------------------------------------------------
             
-            if tot_vregs > 0:
-                #----------------------------------------------------------------
-                #Generating micro-kernel
-                #----------------------------------------------------------------
-                asm.generate_umicro()
-                cm.generate_edge_function(asm)
-                cm.generate_selector_function(asm)
-                print(f"|    [*] Micro-kernel                             | %s%-3d%s | %s%-3d%s|" % (bcolor.OKCYAN, MR, bcolor.ENDC, bcolor.OKCYAN, NR, bcolor.ENDC))
-                #----------------------------------------------------------------
-            
-    cm.generate_selector_function(asm, close=True)
+        cm.generate_selector_function(asm, close=True)
     print ("+=================================================+=====+====+\n")

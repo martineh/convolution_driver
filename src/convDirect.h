@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <omp.h>
+
+#ifdef OMP_ENABLE
+  #include <omp.h>
+#endif
 
 #ifdef ARMV8
   #include <arm_neon.h>

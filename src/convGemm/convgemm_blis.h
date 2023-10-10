@@ -19,9 +19,11 @@
 
 #include <time.h>
 #include <stdbool.h>
-#if TH != 1
+
+#ifdef OMP_ENABLE
   #include <omp.h>
 #endif
+
 #include "../asm_generator/ukernels/gemm_ukernel_headers.h"
 
 #define min(a, b) (((a)<(b))?(a):(b))

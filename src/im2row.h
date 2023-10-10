@@ -1,6 +1,6 @@
 #include "dtypes.h"
 
-#if TH != 1
+#ifdef OMP_ENABLE
   #include <omp.h>
 #endif
 

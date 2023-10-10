@@ -52,8 +52,13 @@
 #include "convGemm/convgemm_blis.h"
 #include "convGemm/im2row_nhwc.h"
 
-#include "blis.h"
-#include "cblas.h"
+#ifdef ENABLE_BLIS
+  #include "blis.h"
+#endif
+
+#ifdef ENABLE_OPENBLAS
+  #include "cblas.h"
+#endif
 
 #define dabs(a)      ( (a) > 0.0 ? (a) : -(a) )
 
@@ -121,7 +126,6 @@ int main(int argc, char *argv[]) {
   tformat = testConf->format;
   TH      = testConf->TH;
 
-  
   ALG     = testConf->ALG; 
   GEMM    = testConf->GEMM; 
   
@@ -134,9 +138,8 @@ int main(int argc, char *argv[]) {
   #elif defined(FP64)
     errorthd = 1.0e-14;
   #endif
-    
 
-    fprintf(testConf->fd_csv, "l;Variant;CIB;COB;WOB;n;k;c;h;w;kh;kw;Time;GFLOPS;Error;MR;NR\n");    
+  fprintf(testConf->fd_csv, "l;Variant;CIB;COB;WOB;n;k;c;h;w;kh;kw;Time;GFLOPS;Error;MR;NR\n");    
 
   printf(" +==================================================================================================================+\n");
   printf(" |%s                                        DRIVER FOR CONVOLUTION EVALUATION                                         %s|\n",
@@ -336,10 +339,18 @@ int main(int argc, char *argv[]) {
 	    ldc = k;
     
             if (strcmp("BLIS", GEMM)==0) {
-	      sgemm_( "N", "N", &mm, &nn, &kk, &alphap, F, &lda, DEXT, &ldb, &betap, Y, &ldc );
+	      #ifdef ENABLE_BLIS
+	        sgemm_( "N", "N", &mm, &nn, &kk, &alphap, F, &lda, DEXT, &ldb, &betap, Y, &ldc );
+	      #else
+		printf("ERROR: BLIS Enabled but not compiled.\n"); exit(-1);
+              #endif
 	    } else if (strcmp("OPENBLAS", GEMM)==0) {
-	      cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
-		          mm, nn, kk, alphap, F, lda, DEXT, ldb, betap, Y, ldc);
+              #ifdef ENABLE_OPENBLAS
+	        cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
+		            mm, nn, kk, alphap, F, lda, DEXT, ldb, betap, Y, ldc);
+	      #else
+		printf("ERROR: OPENBLAS Enabled but not compiled.\n"); exit(-1);
+              #endif
 	    } else if (strcmp("B3A2C0", GEMM)==0) {
               gemm_blis_B3A2C0( 'C', 'C', 'C', 'N', 'N', mm, nn, kk, 
                                 alphap, F, lda, DEXT, ldb, betap, Y, ldc,

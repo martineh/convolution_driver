@@ -32,7 +32,9 @@ void pack_CB_nhwc(char orderM, char transM, int mc, int nc, const float *restric
         int start_ky = start_row % conv_params->kwidth;
         int start_kx = (start_row / conv_params->kwidth) % conv_params->kheight;
         int start_c = (start_row / conv_params->kwidth) / conv_params->kheight;
-#pragma omp parallel for
+	#ifdef OMP_ENABLE
+        #pragma omp parallel for
+        #endif
         for (int j = 0; j < nc; j += RR) {
             int k = j * mc;
             int nr = min(nc - j, RR);
@@ -89,7 +91,9 @@ void pack_CB_nhwc(char orderM, char transM, int mc, int nc, const float *restric
         int start_y = (start_row) % conv_params->owidth;
         int start_x = ((start_row) / conv_params->owidth) % conv_params->oheight;
         int start_b = ((start_row) / conv_params->owidth) / conv_params->oheight;
-#pragma omp parallel for
+	#ifdef OMP_ENABLE
+	#pragma omp parallel for
+	#endif
         for (int j = 0; j < nc; j += RR) {
             int k = j * mc;
             int nr = min(nc - j, RR);
@@ -147,8 +151,9 @@ void pack_CB_nhwc(char orderM, char transM, int mc, int nc, const float *restric
 void im2row_nhwc(float *restrict rows, int ld, const float *restrict in, int batches,
                  int height, int width, int channels, int oheight, int owidth, int kheight, int kwidth, int vpadding,
                  int hpadding, int vstride, int hstride, int vdilation, int hdilation) {
-#if 1
-#pragma omp parallel for
+    #ifdef OMP_ENABLE
+    #pragma omp parallel for
+    #endif
     for (int b = 0; b < batches; b++)
         for (int x = 0; x < oheight; x++)
             for (int y = 0; y < owidth; y++) {
@@ -167,46 +172,14 @@ void im2row_nhwc(float *restrict rows, int ld, const float *restrict in, int bat
                         }
                 }
             }
-#else
-    assert(start_row < oheight * owidth * batches);
-    assert(end_row <= oheight * owidth * batches);
-    assert(start_col < channels * kheight * kwidth);
-    assert(end_col <= channels * kheight * kwidth);
-    // starting values for the first row
-    // int row = (b * oheight + x) * owidth + y;
-    int y =  start_row % owidth;
-    int x = (start_row / owidth) % oheight;
-    int b = (start_row / owidth) / oheight;
-    // starting values for the first column
-    // int col = (c * kheight + kx) * kwidth + ky;
-    int start_ky =  start_col % kwidth;
-    int start_kx = (start_col / kwidth) % kheight;
-    int start_c  = (start_col / kwidth) / kheight;
-
-    // #pragma omp parallel for
-    for (int row = 0; row < end_row - start_row; row++) {
-        for (int col = 0, c = start_c, kx = start_kx, ky = start_ky; col < end_col - start_col; col++) {
-            int ix = vstride * x + vdilation * kx - vpadding;
-            int iy = hstride * y + hdilation * ky - hpadding;
-            if (0 <= ix && ix < height && 0 <= iy && iy < width) {
-                // rows[row, col] = in[b, ix, iy, c]
-                rows[row * ld + col] = in[((b * height + ix) * width + iy) * channels + c];
-            } else rows[row * ld + col] = 0;
-            ky++; if (ky >= kwidth) { ky = 0;
-            kx++; if (kx >= kheight) { kx = 0;
-            c++; } }
-        }
-        y++; if (y >= owidth) { y = 0;
-        x++; if (x >= oheight) { x = 0;
-        b++; } }
-    }
-#endif
 }
 
 void row2im_nhwc(int m, int n, const float *restrict rows, int ld, float *restrict out, int batches,
                  int height, int width, int channels, int oheight, int owidth, int kheight, int kwidth, int vpadding,
                  int hpadding, int vstride, int hstride, int vdilation, int hdilation) {
-#pragma omp parallel for
+    #ifdef OMP_ENABLE
+    #pragma omp parallel for
+    #endif
     for (int b = 0; b < batches; b++)
         for (int x = 0; x < oheight; x++)
             for (int y = 0; y < owidth; y++) {
@@ -249,7 +222,9 @@ void post_row2im_nhwc(int m, int n, const float *restrict rows, int ldr, float b
             int iy = conv_params->hstride * y + conv_params->hdilation * ky - conv_params->hpadding;
             if (0 <= ix && ix < conv_params->height && 0 <= iy && iy < conv_params->width) {
                 // in[b, ix, iy, c] += rows[row, col]
-#pragma omp atomic
+            #ifdef OMP_ENABLE
+            #pragma omp atomic
+            #endif
                 out[((b * conv_params->height + ix) * conv_params->width + iy) * conv_params->channels + c] += rows[
                         row * ldr + col];
             }
@@ -330,43 +305,3 @@ static inline void add_bias_nhwc_inline(int mr, int nr, const float *restrict Cc
         }
     }
 }
-/*
-void add_bias_nhwc(int mr, int nr, const float *restrict Cc, int ldCc, float beta, float *restrict C, int ldC,
-                   const conv_p *conv_params, int start_row, int start_col, bool last) {
-    if (!last) {
-
-        sxpbyM(mr, nr, Cc, ldCc, beta, C + start_row + start_col * ldC, ldC);
-
-    } else if (conv_params->bias_vector && conv_params->running_mean &&
-               conv_params->relu) { // fused convgemm + bn + relu
-
-        if (beta == 0.0)
-            add_bias_bn_relu_nhwc_inline(mr, nr, Cc, ldCc, 0.0, C, ldC, conv_params, start_row, start_col);
-        else
-            add_bias_bn_relu_nhwc_inline(mr, nr, Cc, ldCc, 1.0, C, ldC, conv_params, start_row, start_col);
-
-    } else if (conv_params->bias_vector && conv_params->running_mean && !conv_params->relu) { // fused convgemm + bn
-
-        if (beta == 0.0)
-            add_bias_bn_nhwc_inline(mr, nr, Cc, ldCc, 0.0, C, ldC, conv_params, start_row, start_col);
-        else
-            add_bias_bn_nhwc_inline(mr, nr, Cc, ldCc, 1.0, C, ldC, conv_params, start_row, start_col);
-
-    } else if (conv_params->bias_vector && !conv_params->running_mean && conv_params->relu) { // fused convgemm + relu
-
-        if (beta == 0.0)
-            add_bias_relu_nhwc_inline(mr, nr, Cc, ldCc, 0.0, C, ldC, conv_params, start_row, start_col);
-        else
-            add_bias_relu_nhwc_inline(mr, nr, Cc, ldCc, 1.0, C, ldC, conv_params, start_row, start_col);
-
-    } else if (!conv_params->bias_vector && !conv_params->running_mean && !conv_params->relu) { // fused convgemm + bias
-
-        if (beta == 0.0)
-            add_bias_nhwc_inline(mr, nr, Cc, ldCc, 0.0, C, ldC, conv_params, start_row, start_col);
-        else
-            add_bias_nhwc_inline(mr, nr, Cc, ldCc, 1.0, C, ldC, conv_params, start_row, start_col);
-
-    } else { // Unoptimized fallback
-        add_bias_nhwc_inline(mr, nr, Cc, ldCc, beta, C, ldC, conv_params, start_row, start_col);
-    }
-}*/

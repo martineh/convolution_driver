@@ -61,9 +61,15 @@ void convgemm_blis_B3A2C0(char orderA, char orderB, char orderC,
 
                 pack_RB(orderA, transA, mc, kc, A, ldA, Ac, MR, conv_params, ic, pc);
 
+		#ifdef OMP_ENABLE
                 #pragma omp parallel for private(th_id)// collapse(2)
+		#endif
                 for (int jr = 0; jr < nc; jr += NR) {
+		  #ifdef OMP_ENABLE
 		  th_id = omp_get_thread_num();
+ 		  #else
+		  th_id = 0;
+		  #endif
 		  float *Ctmp_th = &Ctmp[th_id * MR * NR];
 
                   for (int ir = 0; ir < mc; ir += MR) {

@@ -19,6 +19,8 @@ export GOTO_NUM_THREADS=$THREADS
 CONFIGFILE=$1
 OUTPATH="output"
 
+mkdir -p $OUTPATH
+
 RUNID=0
 cpus="0"
 
@@ -52,5 +54,15 @@ else
   OUTCSV="$2"
 fi
 
-taskset -c $cpus ./build/convolution_driver.x "cnn" $CONFIGFILE $TMIN $TEST $DEBUG $OUTCSV $MR $NR $THREADS $ALGORITHM $GEMM $BESTOF
+if [ ! -f $OUTCSV ]; then
+  touch $OUTCSV
+fi
+
+sys_arch=$(uname -p)
+if [ "$sys_arch" = "aarch64" ]; then
+  taskset -c $cpus ./build/convolution_driver.x "cnn" $CONFIGFILE $TMIN $TEST $DEBUG $OUTCSV $MR $NR $THREADS $ALGORITHM $GEMM $BESTOF
+else
+  spike --isa=RV64gcV ~/software/risc-V/riscv64-unknown-elf/bin/pk ./build/convolution_driver.x "cnn" $CONFIGFILE $TMIN $TEST $DEBUG $OUTCSV $MR $NR $THREADS $ALGORITHM $GEMM $BESTOF
+fi
+
 
