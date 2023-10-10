@@ -2,9 +2,9 @@
 #Compilation Options. Possible values [T | F]
 #  [*] T: True and F: False
 #----------------------------------------------------
-OPENBLAS_ENABLE = F
-BLIS_ENABLE     = F
-OMP_ENABLE      = F
+OPENBLAS_ENABLE = T
+BLIS_ENABLE     = T
+OMP_ENABLE      = T
 #----------------------------------------------------
 
 
