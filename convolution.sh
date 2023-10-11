@@ -62,7 +62,7 @@ sys_arch=$(uname -p)
 if [ "$sys_arch" = "aarch64" ]; then
   taskset -c $cpus ./build/convolution_driver.x "cnn" $CONFIGFILE $TMIN $TEST $DEBUG $OUTCSV $MR $NR $THREADS $ALGORITHM $GEMM $BESTOF
 else
-  spike --isa=RV64gcV ~/software/risc-V/riscv64-unknown-elf/bin/pk ./build/convolution_driver.x "cnn" $CONFIGFILE $TMIN $TEST $DEBUG $OUTCSV $MR $NR $THREADS $ALGORITHM $GEMM $BESTOF
+  qemu-riscv64 -cpu c906fdv ./build/convolution_driver.x "cnn" $CONFIGFILE $TMIN $TEST $DEBUG $OUTCSV $MR $NR $THREADS $ALGORITHM $GEMM $BESTOF
 fi
 
 

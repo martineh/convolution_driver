@@ -7,10 +7,10 @@ include Makefile.inc
 arch=$(shell uname -p)
 
 ifneq ($(arch), aarch64)
-	CC       = riscv64-unknown-elf-gcc
-	CLINKER  = riscv64-unknown-elf-gcc
+	CC       = riscv64-unknown-linux-gnu-gcc
+	CLINKER  = riscv64-unknown-linux-gnu-gcc
 	#OPTFLAGS   +=  -O3 -fopenmp -march=rv64imafdcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c910
-	OPTFLAGS = -O3 -DFP32
+	OPTFLAGS = -O0 -g3 -march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -DFP32 -static
 else
 	CC       = gcc
 	CLINKER  = gcc
