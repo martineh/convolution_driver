@@ -4,6 +4,8 @@ include Makefile.inc
 #------------------------------------------
 #| COMPILERS                              |
 #------------------------------------------
+OPTFLAGS=
+
 arch=$(shell uname -p)
 
 ifneq ($(arch), aarch64)
@@ -32,15 +34,15 @@ LIBS_LINKER = $(LIBS)
 INCLUDE = 
 
 ifeq ($(BLIS_ENABLE), T)
-	INCLUDE     = -I$(BLIS_HOME)/include/blis/ 
-	LIBS_LINKER = $(OPENBLAS_HOME)/lib/libopenblas.a $(LIBS_LINKER)
-	OPTFLAGS    = $(OPTFLAGS) -DENABLE_BLIS
+	INCLUDE     += -I$(BLIS_HOME)/include/blis/ 
+	LIBS_LINKER += $(OPENBLAS_HOME)/lib/libopenblas.a 
+	OPTFLAGS    += -DENABLE_BLIS
 endif
 
 ifeq ($(OPENBLAS_ENABLE), T)
-	INCLUDE     = -I$(OPENBLAS_HOME)/include/ $(INCLUDE)
-	OPTFLAGS    = $(OPTFLAGS) -DENABLE_BLIS
-	OPTFLAGS    = $(OPTFLAGS) -DENABLE_OPENBLAS
+	INCLUDE     += -I$(OPENBLAS_HOME)/include/
+	OPTFLAGS    += -DENABLE_BLIS
+	OPTFLAGS    += -DENABLE_OPENBLAS
 endif
 #------------------------------------------
 

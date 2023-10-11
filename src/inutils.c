@@ -133,8 +133,8 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
   testConfig_t *new_testConfig = (testConfig_t *)malloc(sizeof(testConfig_t));
   int cnn_num;
   char format_str[12];
-  char algorithm[32];
-  char kernel[32];
+  char algorithm[64];
+  char kernel[64];
 
   new_testConfig->format = NHWC;
   new_testConfig->tmin   = atof(argv[3]);
