@@ -35,13 +35,13 @@ INCLUDE =
 
 ifeq ($(BLIS_ENABLE), T)
 	INCLUDE     += -I$(BLIS_HOME)/include/blis/ 
-	LIBS_LINKER += $(OPENBLAS_HOME)/lib/libopenblas.a 
+	LIBS_LINKER += $(BLIS_HOME)/lib/libblis.a 
 	OPTFLAGS    += -DENABLE_BLIS
 endif
 
 ifeq ($(OPENBLAS_ENABLE), T)
 	INCLUDE     += -I$(OPENBLAS_HOME)/include/
-	OPTFLAGS    += -DENABLE_BLIS
+	LIBS_LINKER += $(OPENBLAS_HOME)/lib/libopenblas.a 
 	OPTFLAGS    += -DENABLE_OPENBLAS
 endif
 #------------------------------------------
