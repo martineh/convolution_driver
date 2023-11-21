@@ -437,7 +437,10 @@ int main(int argc, char *argv[]) {
           }
         }
 		    
-        printf(" | %-3d  %-2d | %-8d %-8d %-8d| %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e |", MR, NR, COB, WOB, CIB,  n, k, c, h, w, r, s, COLOR_BOLDWHITE, GFLOPS, COLOR_RESET, time, error);
+        if (strcmp("LOWERING", ALG)==0 && (strcmp("BLIS", GEMM)==0 || strcmp("OPENBLAS", GEMM)==0))
+          printf(" | -    -  |   -         -        -    | %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e |", n, k, c, h, w, r, s, COLOR_BOLDMAGENTA, GFLOPS, COLOR_RESET, time, error);
+	else
+          printf(" | %-3d  %-2d | %-8d %-8d %-8d| %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e |", MR, NR, COB, WOB, CIB,  n, k, c, h, w, r, s, COLOR_BOLDMAGENTA, GFLOPS, COLOR_RESET, time, error);
 
 	if (GFLOPS > best_flops) {
 	  best_error = error;
@@ -449,7 +452,7 @@ int main(int argc, char *argv[]) {
 	  best_CIB   = CIB;
 	  best_WOB   = WOB;
 	}
-
+	
         if ( testConf->test=='T' )
           if ( error < errorthd)
             printf("  %sOK%s  |", COLOR_GREEN, COLOR_RESET);
