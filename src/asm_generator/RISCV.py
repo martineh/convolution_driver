@@ -202,8 +202,8 @@ class ASM_RISCV():
         self.fout.write(f"\n")
    
         self.fout.write(f"  //ASM Instructions\n")
-        self.fout.write(f"  #define LOAD       vle32.v\n")
-        self.fout.write(f"  #define STORE      vse32.v\n")
+        self.fout.write(f"  #define LOAD       vle.v\n")
+        self.fout.write(f"  #define STORE      vse.v\n")
         self.fout.write(f"  #define GATHER     vrgather.vi\n")
         if (not self.broadcast) and (not self.gather):
             self.fout.write(f"  #define VFMACC     vfmacc.vf\n")
