@@ -12,7 +12,7 @@ ifneq ($(arch), aarch64)
 	CC       = riscv64-unknown-linux-gnu-gcc
 	CLINKER  = riscv64-unknown-linux-gnu-gcc
 	#OPTFLAGS   +=  -O3 -fopenmp -march=rv64imafdcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c910
-	OPTFLAGS = -O0 -g3 -march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -DFP32 -static
+	OPTFLAGS = -O0 -g3 -march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -DFP32 -mtune=c906 -static 
 else
 	CC       = gcc
 	CLINKER  = gcc
@@ -35,13 +35,13 @@ INCLUDE =
 
 ifeq ($(BLIS_ENABLE), T)
 	INCLUDE     += -I$(BLIS_HOME)/include/blis/ 
-	LIBS_LINKER += $(OPENBLAS_HOME)/lib/libopenblas.a 
+	LIBS_LINKER += $(BLIS_HOME)/lib/libblis.a 
 	OPTFLAGS    += -DENABLE_BLIS
 endif
 
 ifeq ($(OPENBLAS_ENABLE), T)
 	INCLUDE     += -I$(OPENBLAS_HOME)/include/
-	OPTFLAGS    += -DENABLE_BLIS
+	LIBS_LINKER += $(OPENBLAS_HOME)/lib/libopenblas.a 
 	OPTFLAGS    += -DENABLE_OPENBLAS
 endif
 #------------------------------------------

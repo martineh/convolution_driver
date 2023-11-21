@@ -58,6 +58,16 @@ if [ ! -f $OUTCSV ]; then
   touch $OUTCSV
 fi
 
+if [ "$ALGORITHM" = "LOWERING" ] && [ "$GEMM" = "OPENBLAS" ] ; then
+  echo "WARNING: LOWERING + OPENBLAS Enable. BESTOF Option not available. Disabled automaticaly."
+  BESTOF=F
+fi
+
+if [ "$ALGORITHM" = "LOWERING" ] && [ "$GEMM" = "BLIS" ]; then
+  echo "WARNING: LOWERING + BLIS Enable. BESTOF Option not available. Disabled automaticaly."
+  BESTOF=F
+fi
+
 sys_arch=$(uname -p)
 if [ "$sys_arch" = "aarch64" ]; then
   taskset -c $cpus ./build/convolution_driver.x "cnn" $CONFIGFILE $TMIN $TEST $DEBUG $OUTCSV $MR $NR $THREADS $ALGORITHM $GEMM $BESTOF
