@@ -40,6 +40,7 @@
 #include "convDirect.h"
 #include "colors.h"
 #include "inutils.h"
+#include "convWinograd/conv_winograd.h"
 
 #include "im2row.h"
 #include "im2col.h"
@@ -62,10 +63,13 @@
 
 #define dabs(a)      ( (a) > 0.0 ? (a) : -(a) )
 
+
+
 int main(int argc, char *argv[]) {
   char* variant;
   DTYPE *D, *F, *Y, *Yg, *DT, *FB, *DEXT, *Ac, *Ctmp, *Ac_blis, *Bc_blis;
-  
+  DTYPE *U, *V, *M;
+
   size_t mc_blis, nc_blis, kc_blis;
 
   double t1, t2, time, tmin, error, nrm, tmp, errorthd, flops, GFLOPS;
@@ -92,8 +96,7 @@ int main(int argc, char *argv[]) {
          ldF1,  ldF2,  ldF3,
          ldFB1, ldFB2, ldFB3, ldFB4,
          ldY1,  ldY2,  ldY3,
-         visual, nreps, 
-    ho, wo, homax, womax;
+         visual, nreps, ho, wo, homax, womax;
   
   int ib, i, i2, ii, Ci_Cib, Co_Cob, Co_Nr, Co_Mr;
   char *filename;
@@ -116,11 +119,18 @@ int main(int argc, char *argv[]) {
   int vdilation;
   int hdilation;
 
+  //--------------------------------------------------------------
+  //--------------------------------------------------------------
+  /*** WINOGRAD 3x3 2x2 ***/
+  int tile_H, tile_W;
+  unsigned char wino_on;
+  //--------------------------------------------------------------
+  //--------------------------------------------------------------
+
   ukernel_asm ukr;
   ukernel_edge ukr_edge;
 
   testConfig_t* testConf=new_CNN_Test_Config(argv);
-  m=2; t=6;
 
   tmin    = testConf->tmin;
   tformat = testConf->format;
@@ -139,13 +149,13 @@ int main(int argc, char *argv[]) {
     errorthd = 1.0e-14;
   #endif
 
-  fprintf(testConf->fd_csv, "l;Variant;CIB;COB;WOB;n;k;c;h;w;kh;kw;Time;GFLOPS;Error;MR;NR\n");    
+  fprintf(testConf->fd_csv, "l;Variant;CIB;COB;WOB;n;k;c;ho;wo;kh;kw;Time;GFLOPS;Error;MR;NR\n");    
 
   printf(" +==================================================================================================================+\n");
   printf(" |%s                                        DRIVER FOR CONVOLUTION EVALUATION                                         %s|\n",
   COLOR_BOLDYELLOW, COLOR_RESET);
   printf(" +=========+===========================+======================================+==============================+======+\n");
-  printf(" | %sMR   NR | COB(MC)  WOB(NC)  CIB(KC) |   n     k     c    h     w   (kh,kw) |  GFLOPS     Time     Error   | Test%s |\n",
+  printf(" | %sMR   NR | COB(MC)  WOB(NC)  CIB(KC) |   n     k     c   ho    wo   (kh,kw) |  GFLOPS     Time     Error   | Test%s |\n",
   COLOR_RESET, COLOR_RESET);
   printf(" +=========+===========================+======================================+==============================+======+\n");
     
@@ -169,6 +179,7 @@ int main(int argc, char *argv[]) {
     vdilation = 1;
     hdilation = 1;
 
+    wino_on = 1;
     if (r == 3) {h += 2; w += 2;}
 
     int m_gemm = n * ho * wo;
@@ -229,8 +240,10 @@ int main(int argc, char *argv[]) {
             printf("ERROR: COB must be multiple of NR. Now COB=%d and NR=%d\n", COB, NR);
             exit(-1);
           }
+
           Ac = (DTYPE *) aligned_alloc( 32, ((int) TH*WOB*MR*CIB*sizeof(DTYPE)));
           FB = (DTYPE *) malloc( ceil(((float) k)/NR)*NR*c*r*s*sizeof(DTYPE));
+
         }
     
         if (strcmp("LOWERING", ALG)==0)
@@ -238,59 +251,40 @@ int main(int argc, char *argv[]) {
           
         D = (DTYPE *) malloc( n*c*h*w*sizeof(DTYPE));
         F = (DTYPE *) malloc( k*c*r*s*sizeof(DTYPE));   
-        Y = (DTYPE *) malloc( n*k*ho*wo*sizeof(DTYPE));
+        Y = (DTYPE *) malloc( n*k*h*w*sizeof(DTYPE));
           
         Ctmp = (DTYPE *)malloc(TH * MR  * NR *sizeof(DTYPE));
     
         if ( testConf->test=='T' )
-          Yg = (DTYPE *) malloc( n*k*ho*wo*sizeof(DTYPE) );   
+          Yg = (DTYPE *) malloc( n*k*h*w*sizeof(DTYPE) );   
           
         Ci_Cib = (int)ceil(((float) c)/CIB);
         Co_Cob = (int)ceil(((float) k)/COB);
         Co_Nr  = (int)ceil(((float) k)/NR);
         Co_Mr  = (int)ceil(((float) k)/MR);
     
-        if ( tformat == NCHW ) { // NCHW
-          ldD3 = w;
-          ldD2 = h*ldD3;
-          ldD1 = c*ldD2;
-	      
-          ldF3 = s;
-          ldF2 = r*ldF3;
-          ldF1 = c*ldF2;
-          
-          ldY3 = wo;
-          ldY2 = ho*ldY3;
-          ldY1 = k*ldY2;
-          
-          ldFB4 = NR;
-          ldFB3 = c*ldFB4;
-          ldFB2 = Co_Nr*ldFB3;
-          ldFB1 = s*ldFB2;
-          generate_tensor4D( n, c, h, w, D, ldD1, ldD2, ldD3 );
-          generate_tensor4D( k, c, r, s, F, ldF1, ldF2, ldF3 );
-        } else { // NHWC
-          ldD3 = c;
-          ldD2 = w * ldD3;
-          ldD1 = h * ldD2;
 
-          ldF3 = k;
-          ldF2 = s*ldF3;
-          ldF1 = r*ldF2;
 
-          ldY3 = k;
-          ldY2 = wo*ldY3;
-          ldY1 = ho*ldY2;
+        ldD3 = c;
+        ldD2 = w * ldD3;
+        ldD1 = h * ldD2;
+
+        ldF3 = k;
+        ldF2 = s*ldF3;
+        ldF1 = r*ldF2;
+
+        ldY3 = k;
+        ldY2 = wo*ldY3;
+        ldY1 = ho*ldY2;
           
-          ldFB4 = NR;
-          ldFB3 = c*ldFB4;
-          ldFB2 = Co_Nr*ldFB3;
-          ldFB1 = s*ldFB2;
-          
-          generate_tensor4D( n, h, w, c, D, ldD1, ldD2, ldD3 );
-          generate_tensor4D( c, r, s, k, F, ldF1, ldF2, ldF3 );
-        }
-	    
+        ldFB4 = NR;
+        ldFB3 = c*ldFB4;
+        ldFB2 = Co_Nr*ldFB3;
+        ldFB1 = s*ldFB2;
+         
+        generate_tensor4D( n, h, w, c, D, ldD1, ldD2, ldD3 );
+        generate_tensor4D( c, r, s, k, F, ldF1, ldF2, ldF3 );
+
         // Set result to zeros
         for ( in=0; in<n; in++ )
         for ( ik=0; ik<k; ik++ )
@@ -307,21 +301,39 @@ int main(int argc, char *argv[]) {
 	      Ygrow_NCHW(in,ik,ih,iw) = 0.0;
          }
          if ( testConf->debug=='T' ) {
-           if ( tformat == NCHW ) {
-             print_tensor4D( "D", n, c, h, w, D, ldD1, ldD2, ldD3 );
-             print_tensor4D( "F", k, c, r, s, F, ldF1, ldF2, ldF3 );
-           } else {
              print_tensor4D( "D", n, h, w, c, D, ldD1, ldD2, ldD3 );
              print_tensor4D( "F", c, r, s, k, F, ldF1, ldF2, ldF3 );
-           }
          }
     
         if (strcmp("CONVDIRECT", ALG)==0) {
           transform_filter_block_blis(c, k, r, s, F,  ldF1,  ldF2,  ldF3,
 				      FB, ldFB1, ldFB2, ldFB3, ldFB4, tformat, 
 				      MR, NR);
-        }
-    
+        } else if (strcmp("WINOGRAD", ALG)==0) {
+          
+	  if (r != 3 && s != 3) { 
+	    wino_on = 0; goto show_results; 
+	  }
+
+	  if (wino_on) {
+            h -= 2; w -= 2; //Restore original values for Winograd Convolution.
+	    vpadding = 1; hpadding = 1;
+            m=2; //TODO: m=2 if defined(m2r3) But. ¿¿mr=4??
+            t = m + r - 1;
+            tile_H = ceil(((double) h + 2 * vpadding - t) / m) + 1;
+            tile_W = ceil(((double) w + 2 * hpadding - t) / m) + 1;
+
+            conv_winograd_workspace_alloc(m, r, n, k, c, h, w, r, s, vpadding, hpadding, &U, &V, &M);
+            
+	    memset(U, 0, t * t * k * c * sizeof(DTYPE));
+            memset(V, 0, t * t * c * (n * tile_H * tile_W) * sizeof(DTYPE));
+            memset(M, 0, t * t * k * (n * tile_H * tile_W) * sizeof(DTYPE));
+
+	    conv_winograd_2x2_3x3_neon_fp32_nhwc_pre(m, r, n, k, c, r, s, F, ldF1, ldF2, ldF3, U);
+	  }
+	}
+   
+
         time  = 0.0; 
         t1    = dclock();
         nreps = 0;
@@ -382,7 +394,14 @@ int main(int argc, char *argv[]) {
                                   Ac, Ctmp, tformat, CIB, COB, WOB, MR, NR, TH, 
 	    		          ukr, ukr_edge);
             
-          }
+          } else if (strcmp("WINOGRAD", ALG)==0) {
+              conv_winograd_2x2_3x3_neon_fp32_nhwc_kernel(m, r, n, k, c,
+                     ho, wo, r, s, vpadding, hpadding,
+                     D,  ldD1, ldD2, ldD3, Y, ldY1, ldY2, ldY3,
+                     NULL, U,  V, M, 'F', 'F', NULL, NULL, NULL, NULL);
+          } else {
+	    printf("ERROR: Algorithm unsuported\n"); exit(-1);
+	  }
     
           nreps++;
           t2 = dclock();
@@ -394,11 +413,21 @@ int main(int argc, char *argv[]) {
 	    
         // Test result
         if ( testConf->test=='T' ) {
-          convDirect_original(n, k, c, h, w, ho, wo, r, s, 
+	  if (strcmp("WINOGRAD", ALG)==0)
+          convDirect_original(n, k, c, ho, wo, ho, wo, 
+			      r, s, vpadding, hpadding,
 		              D,  ldD1, ldD2, ldD3, 
 		              F,  ldF1, ldF2, ldF3, 
 		              Yg, ldY1, ldY2, ldY3,
 		              tformat);
+	  else
+          convDirect_original(n, k, c, h, w, ho, wo, 
+			      r, s, vpadding, hpadding,
+		              D,  ldD1, ldD2, ldD3, 
+		              F,  ldF1, ldF2, ldF3, 
+		              Yg, ldY1, ldY2, ldY3,
+		              tformat);
+
           error = 0.0;
           nrm   = 0.0;
           for ( in=0; in<n; in++ )
@@ -436,11 +465,16 @@ int main(int argc, char *argv[]) {
             print_tensor4D( "Ycorrect", n, h, w, k, Yg, ldY1, ldY2, ldY3 );
           }
         }
-		    
-        if (strcmp("LOWERING", ALG)==0 && (strcmp("BLIS", GEMM)==0 || strcmp("OPENBLAS", GEMM)==0))
-          printf(" | -    -  |   -         -        -    | %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e |", n, k, c, h, w, r, s, COLOR_BOLDMAGENTA, GFLOPS, COLOR_RESET, time, error);
-	else
-          printf(" | %-3d  %-2d | %-8d %-8d %-8d| %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e |", MR, NR, COB, WOB, CIB,  n, k, c, h, w, r, s, COLOR_BOLDMAGENTA, GFLOPS, COLOR_RESET, time, error);
+	
+  show_results:	
+	if (!wino_on)
+          printf(" | -    -  |   -         -        -    | %3d %5d %5d %5d %5d   (%1d,%1d)  |     -         -        -     |", n, k, c, ho, wo, r, s);
+	else {
+          if ((strcmp("LOWERING", ALG)==0 || strcmp("WINOGRAD", ALG)==0) && (strcmp("BLIS", GEMM)==0 || strcmp("OPENBLAS", GEMM)==0))
+            printf(" | -    -  |   -         -        -    | %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e |", n, k, c, ho, wo, r, s, COLOR_BOLDMAGENTA, GFLOPS, COLOR_RESET, time, error);
+	  else
+            printf(" | %-3d  %-2d | %-8d %-8d %-8d| %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e |", MR, NR, COB, WOB, CIB,  n, k, c, ho, wo, r, s, COLOR_BOLDMAGENTA, GFLOPS, COLOR_RESET, time, error);
+	}
 
 	if (GFLOPS > best_flops) {
 	  best_error = error;
@@ -453,7 +487,7 @@ int main(int argc, char *argv[]) {
 	  best_WOB   = WOB;
 	}
 	
-        if ( testConf->test=='T' )
+        if ( testConf->test=='T' && wino_on)
           if ( error < errorthd)
             printf("  %sOK%s  |", COLOR_GREEN, COLOR_RESET);
           else
@@ -469,6 +503,8 @@ int main(int argc, char *argv[]) {
           free(Bc_blis);
           if (strcmp("LOWERING", ALG)==0)
             free(DEXT);
+	} else if (strcmp("WINOGRAD", ALG)==0 && wino_on) {
+	  conv_winograd_workspace_dealloc(&U, &V, &M);
         } else {
           free(Ac); 
           free(FB);
@@ -485,7 +521,7 @@ int main(int argc, char *argv[]) {
     }
     if (testConf->bestof=='T') {
       printf(" +---------+---------------------------+--------------------------------------+------------------------------+------+\n");
-      printf(" | %s%-3d  %-2d | %-8d %-8d %-8d| %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e %s|", COLOR_BOLDWHITE, best_mr, best_nr, best_COB, best_WOB, best_CIB,  n, k, c, h, w, r, s, COLOR_BOLDWHITE, best_flops, COLOR_RESET, best_time, best_error, COLOR_RESET);
+      printf(" | %s%-3d  %-2d | %-8d %-8d %-8d| %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e %s|", COLOR_BOLDWHITE, best_mr, best_nr, best_COB, best_WOB, best_CIB,  n, k, c, ho, wo, r, s, COLOR_BOLDWHITE, best_flops, COLOR_RESET, best_time, best_error, COLOR_RESET);
       if ( testConf->test=='T' )
         if ( best_error < errorthd)
           printf("  %sOK%s  |", COLOR_GREEN, COLOR_RESET);
@@ -496,9 +532,9 @@ int main(int argc, char *argv[]) {
       printf("\n");
       printf(" +---------+---------------------------+--------------------------------------+------------------------------+------+\n");
 
-      fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, best_CIB, best_COB, best_WOB, n, k, c, h, w, r, s, best_time, best_flops, best_error, best_mr, best_nr);
-    } else 
-      fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, CIB, COB, WOB, n, k, c, h, w, r, s, time, GFLOPS, error, MR, NR);
+      fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, best_CIB, best_COB, best_WOB, n, k, c, ho, wo, r, s, best_time, best_flops, best_error, best_mr, best_nr);
+    } else if (!wino_on) 
+      fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, CIB, COB, WOB, n, k, c, ho, wo, r, s, time, GFLOPS, error, MR, NR);
   }
 
   fclose(testConf->fd_csv);

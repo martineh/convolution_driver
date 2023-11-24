@@ -58,8 +58,12 @@ OBJ_GEMM_FILES = $(patsubst ./src/gemm/%.c, $(OBJDIR)/%.o, $(SRC_GEMM_FILES))
 
 SRC_CONVGEMM_FILES = $(wildcard ./src/convGemm/*.c)
 OBJ_CONVGEMM_FILES = $(patsubst ./src/convGemm/%.c, $(OBJDIR)/%.o, $(SRC_CONVGEMM_FILES))
+
+SRC_WINOGRAD_FILES = $(wildcard ./src/convWinograd/*.c)
+OBJ_WINOGRAD_FILES = $(patsubst ./src/convWinograd/%.c, $(OBJDIR)/%.o, $(SRC_WINOGRAD_FILES))
  
-OBJ_FILES  = $(OBJDIR)/model_level.o $(OBJDIR)/selector_ukernel.o $(OBJDIR)/gemm_ukernel.o $(OBJ_CONV_FILES) $(OBJ_ASM_FILES) $(OBJ_GEMM_FILES) $(OBJ_CONVGEMM_FILES)
+ 
+OBJ_FILES  = $(OBJDIR)/model_level.o $(OBJDIR)/selector_ukernel.o $(OBJDIR)/gemm_ukernel.o $(OBJ_CONV_FILES) $(OBJ_ASM_FILES) $(OBJ_GEMM_FILES) $(OBJ_CONVGEMM_FILES) $(OBJ_WINOGRAD_FILES)
 
 
 all: $(OBJDIR)/$(BIN)
@@ -74,6 +78,9 @@ $(OBJDIR)/%.o: ./src/gemm/%.c
 	$(CC) $(CFLAGS) $(OPTFLAGS) -c -o $@ $< $(INCLUDE) $(LIBS)
 
 $(OBJDIR)/%.o: ./src/convGemm/%.c
+	$(CC) $(CFLAGS) $(OPTFLAGS) -c -o $@ $< $(INCLUDE) $(LIBS)
+
+$(OBJDIR)/%.o: ./src/convWinograd/%.c
 	$(CC) $(CFLAGS) $(OPTFLAGS) -c -o $@ $< $(INCLUDE) $(LIBS)
 
 $(OBJDIR)/%.o: ./src/asm_generator/ukernels/%.S

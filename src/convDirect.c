@@ -76,6 +76,7 @@ void convDirect_original( int n, int k, int c,
                           int h, int w, 
                           int ho, int wo, 
                           int r, int s, 
+			  int vpadding, int hpadding,
                           DTYPE *D, int ldD1, int ldD2, int ldD3,
 	                  DTYPE *F, int ldF1, int ldF2, int ldF3,
                           DTYPE *Yg, int ldY1, int ldY2, int ldY3,
@@ -99,12 +100,12 @@ void convDirect_original( int n, int k, int c,
     for ( ih=0;  ih<ho;  ih++ ) 
     for ( iw=0;  iw<wo;  iw++ ) 
     for ( ir=0;  ir<r;   ir++ ) {
-      x_x = ih + ir;
+      x_x = ih + ir  - vpadding;
       if (0 <= x_x && x_x < h) 
 	for ( is=0; is<s; is++ ) {
-	  x_y = iw + is;
+	  x_y = iw + is - hpadding;
 	  if (0 <= x_y && x_y < w) {
-            //printf("FB %d %d %d %d %16.10e\n", ik, ic, ir, is, Frow_NHWC(ik,ic,ir,is));
+	    //printf("D[%d]=%.4f\n", in+ic+x_x+x_y, Drow_NHWC(in,ic,x_x,x_y));
 	    Ygrow_NHWC(in,ik,ih,iw) += Drow_NHWC(in,ic,x_x,x_y) * Frow_NHWC(ik,ic,ir,is);        
           }
 	}
