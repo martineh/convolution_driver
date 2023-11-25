@@ -163,6 +163,7 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
   printf(" |  [%s*%s] Test Minimum Time              |  %-74.2f|\n",  COLOR_BOLDYELLOW, COLOR_RESET, new_testConfig->tmin);
   printf(" |  [%s*%s] Test Verification              |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[4][0] == 'T' ? "ON" : "OFF");
   printf(" |  [%s*%s] Mode Debug                     |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[5][0] == 'T' ? "ON" : "OFF");
+  printf(" |  [%s*%s] Model Level Platform           |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[13]);
   printf(" |  [%s*%s] Configuration Selected         |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[2]);
   printf(" |  [%s*%s] File Results Selected          |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[6]);
   printf(" +=====================================+============================================================================+\n");
@@ -190,7 +191,8 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
     type = CNN_TYPE;
   else
     type = BATCH_TYPE;
-  
+ 
+   
   while (fgets(line, 512, fd_conf) != NULL)
     if (line[0] != '#') {      
       col = 0;
@@ -206,11 +208,10 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
 	set_CNN(col, cnn_num, tmp, type, new_testConfig->cnn);
 	col++;
       }
-
       cnn_num++;
     }
-
   fclose(fd_conf); 
+  
 
   new_testConfig->cnn_num = cnn_num;
   new_testConfig->type = type;

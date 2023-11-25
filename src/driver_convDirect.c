@@ -119,18 +119,17 @@ int main(int argc, char *argv[]) {
   int vdilation;
   int hdilation;
 
-  //--------------------------------------------------------------
-  //--------------------------------------------------------------
-  /*** WINOGRAD 3x3 2x2 ***/
   int tile_H, tile_W;
   unsigned char wino_on;
-  //--------------------------------------------------------------
-  //--------------------------------------------------------------
+
+  int params[15];
 
   ukernel_asm ukr;
   ukernel_edge ukr_edge;
 
   testConfig_t* testConf=new_CNN_Test_Config(argv);
+
+  load_model_level_params(argv[13], params);
 
   tmin    = testConf->tmin;
   tformat = testConf->format;
@@ -149,7 +148,7 @@ int main(int argc, char *argv[]) {
     errorthd = 1.0e-14;
   #endif
 
-  fprintf(testConf->fd_csv, "l;Variant;CIB;COB;WOB;n;k;c;ho;wo;kh;kw;Time;GFLOPS;Error;MR;NR\n");    
+  fprintf(testConf->fd_csv, "l;CIB;COB;WOB;n;k;c;ho;wo;kh;kw;Time;GFLOPS;Error;MR;NR\n");    
 
   printf(" +==================================================================================================================+\n");
   printf(" |%s                                        DRIVER FOR CONVOLUTION EVALUATION                                         %s|\n",
@@ -222,7 +221,7 @@ int main(int argc, char *argv[]) {
         }
     
         if (strcmp("LOWERING", ALG)==0 || strcmp("CONVGEMM", ALG)==0) {
-          get_optim_mc_nc_kc(sizeof(DTYPE), n_gemm, m_gemm, k_gemm, NR, MR, &COB, &WOB, &CIB);
+          get_optim_mc_nc_kc(sizeof(DTYPE), n_gemm, m_gemm, k_gemm, NR, MR, &COB, &WOB, &CIB, params);
           
           mc_blis = COB; nc_blis = WOB; kc_blis = CIB;
     
@@ -230,7 +229,7 @@ int main(int argc, char *argv[]) {
           Bc_blis = (DTYPE *)aligned_alloc(32, TH*(kc_blis)*(NR+nc_blis)*sizeof(DTYPE));
         } else {
           MR = nr_iter; NR = mr_iter;
-          get_optim_mc_nc_kc(sizeof(DTYPE), m_gemm, n_gemm, k_gemm, MR, NR, &COB, &WOB, &CIB);
+          get_optim_mc_nc_kc(sizeof(DTYPE), m_gemm, n_gemm, k_gemm, MR, NR, &COB, &WOB, &CIB, params);
           MR = mr_iter; NR = nr_iter;
     
           if (WOB % MR != 0) {
@@ -533,8 +532,11 @@ int main(int argc, char *argv[]) {
       printf(" +---------+---------------------------+--------------------------------------+------------------------------+------+\n");
 
       fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, best_CIB, best_COB, best_WOB, n, k, c, ho, wo, r, s, best_time, best_flops, best_error, best_mr, best_nr);
-    } else if (!wino_on) 
-      fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, CIB, COB, WOB, n, k, c, ho, wo, r, s, time, GFLOPS, error, MR, NR);
+    } else
+      if (strcmp("WINOGRAD", ALG)==0 && !wino_on) //Winowrad unsuported for this layer
+        fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, 0, 0, 0, n, k, c, ho, wo, r, s, 0.0, 0.0, error, 0, 0);
+      else
+        fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, CIB, COB, WOB, n, k, c, ho, wo, r, s, time, GFLOPS, error, MR, NR);
   }
 
   fclose(testConf->fd_csv);

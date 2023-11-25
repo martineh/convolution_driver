@@ -24,6 +24,44 @@
   between Ar (mr x kc) and Br (kc x nr) proportionally to the ratio nr/mr to estimate kc
 **/
 
+void load_model_level_params(char *config_file, int *params) {
+  
+  FILE *fd_conf = fopen(config_file, "r"); //open config file
+  if (!fd_conf) {
+    printf("ERROR: Model level configuration file NOT found\n");
+    exit(-1);
+  }
+  int col = 0;
+  const char delimiter[] = "\t";
+  char *tmp;
+  int level = 0;
+  char line[512];
+
+  //while ((read = getline(&line, &len, fd_conf)) != -1) {
+  while (fgets(line, 512, fd_conf) != NULL) {
+    if (line[0] != '#') {      
+      tmp = strtok(line, delimiter);
+      if (tmp == NULL)
+	break;
+      params[level * 5 + col] = atoi(tmp);
+      col++;
+      for (;;) {
+	tmp = strtok(NULL, delimiter);
+	if (tmp == NULL)
+	  break;
+        params[level * 5 + col] = atoi(tmp);
+	col++;
+      }
+      level++;
+      col=0;
+    }
+  }
+
+
+  fclose(fd_conf);
+
+}
+
 int model_level(int isL3, int NL, int CL, int WL, int dataSize, int m, int n) { 
 
   
@@ -56,18 +94,19 @@ int model_level(int isL3, int NL, int CL, int WL, int dataSize, int m, int n) {
 
 }
 
-void get_optim_mc_nc_kc(int dataSize, int m, int n, int k, int mr, int nr, int *mc, int *nc, int *kc) {
+void get_optim_mc_nc_kc(int dataSize, int m, int n, int k, int mr, int nr, int *mc, int *nc, int *kc, int *params) {
 
-  *kc = model_level(0, NL1, CL1, WL1, dataSize, mr, nr); *kc = floor(*kc);
+  //NL1, CL1, WL1
+  *kc = model_level(0, params[2], params[3], params[4], dataSize, mr, nr); *kc = floor(*kc);
   *kc = min(k, *kc);
   
-  *mc = model_level(0, NL2, CL2, WL2, dataSize, *kc, nr); *mc = floor(*mc);
-  *mc = (size_t)(*mc / mr) * mr + mr;//or (size_t)(*mc / MR) * MR + MR
+  *mc = model_level(0, params[7], params[8], params[9], dataSize, *kc, nr); *mc = floor(*mc);
+  *mc = (size_t)(*mc / mr) * mr + mr;
   //*mc = min(m, *mc);
   
-  *nc = model_level(1, NL3, CL3, WL3, dataSize, *kc, *mc); *nc = floor(*nc);
-  *nc = (size_t)(*nc / nr) * nr + nr;//(size_t)(*nc / NR) * MR + NR
+  *nc = model_level(1, params[12], params[13], params[14], dataSize, *kc, *mc); *nc = floor(*nc);
+  *nc = (size_t)(*nc / nr) * nr + nr;
   //*nc = min(n, *nc);
-    
+  
 }
 
