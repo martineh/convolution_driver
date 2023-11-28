@@ -171,8 +171,8 @@ if __name__ == "__main__":
             
         cm.generate_selector_function(asm, close=True)
     else:
-        for mr in range(4, 24, 4):
-            for nr in range(4, 24, 4):
+        for mr in range(4, 28, 4):
+            for nr in range(4, 28, 4):
                 MR = mr
                 NR = nr
                 asm = ARMv8.ASM_ARMv8(MR, NR, arch, unroll, pipelining)

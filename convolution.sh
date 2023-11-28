@@ -71,6 +71,8 @@ fi
 if [ "$ALGORITHM" = "WINOGRAD" ] ; then
   echo "WARNING: WINOGRAD Enable. BESTOF Option not available. Disabled automaticaly."
   BESTOF=F
+  MR=4
+  NR=4
 fi
 
 sys_arch=$(uname -p)

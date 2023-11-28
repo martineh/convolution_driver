@@ -212,8 +212,10 @@ int main(int argc, char *argv[]) {
           NR = nr_iter;
         }
 
-        ukernels_selector(MR, NR, &ukr, &ukr_edge);
-	if (ukr == NULL)  continue; 
+        if (strcmp("WINOGRAD", ALG)!=0) {
+          ukernels_selector(MR, NR, &ukr, &ukr_edge);
+	  if (ukr == NULL)  continue; 
+	}
         
         if (strcmp("CONVDIRECT", ALG)==0) {
           MR = mr_iter; 
@@ -348,7 +350,8 @@ int main(int argc, char *argv[]) {
 	    lda = k;
 	    ldb = r * s * c;
 	    ldc = k;
-    
+   
+	   printf("%zu, %zu, %zu\n", mm, nn, kk); 
             if (strcmp("BLIS", GEMM)==0) {
 	      #ifdef ENABLE_BLIS
 	        sgemm_( "N", "N", &mm, &nn, &kk, &alphap, F, &lda, DEXT, &ldb, &betap, Y, &ldc );
