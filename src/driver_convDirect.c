@@ -224,6 +224,7 @@ int main(int argc, char *argv[]) {
     
         if (strcmp("LOWERING", ALG)==0 || strcmp("CONVGEMM", ALG)==0) {
           get_optim_mc_nc_kc(sizeof(DTYPE), n_gemm, m_gemm, k_gemm, NR, MR, &COB, &WOB, &CIB, params);
+          //get_optim_mc_nc_kc(sizeof(DTYPE), m_gemm, n_gemm, k_gemm, MR, NR, &COB, &WOB, &CIB, params);
           
           mc_blis = COB; nc_blis = WOB; kc_blis = CIB;
     
@@ -350,8 +351,7 @@ int main(int argc, char *argv[]) {
 	    lda = k;
 	    ldb = r * s * c;
 	    ldc = k;
-   
-	   printf("%zu, %zu, %zu\n", mm, nn, kk); 
+  
             if (strcmp("BLIS", GEMM)==0) {
 	      #ifdef ENABLE_BLIS
 	        sgemm_( "N", "N", &mm, &nn, &kk, &alphap, F, &lda, DEXT, &ldb, &betap, Y, &ldc );

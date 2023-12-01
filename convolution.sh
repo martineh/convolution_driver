@@ -77,9 +77,9 @@ fi
 
 sys_arch=$(uname -p)
 if [ "$sys_arch" = "aarch64" ]; then
-  taskset -c $cpus ./build/convolution_driver.x "cnn" $CONFIGFILE $TMIN $TEST $DEBUG $OUTCSV $MR $NR $THREADS $ALGORITHM $GEMM $BESTOF "archs/"$PLATFORM
+  taskset -c $cpus ./build/convolution_driver.x "cnn" $CONFIGFILE $TMIN $TEST $DEBUG $OUTCSV $MR $NR $THREADS $ALGORITHM $GEMM $BESTOF "cache-arch/"$PLATFORM
 else
-  qemu-riscv64 -cpu c906fdv ./build/convolution_driver.x "cnn" $CONFIGFILE $TMIN $TEST $DEBUG $OUTCSV $MR $NR $THREADS $ALGORITHM $GEMM $BESTOF "archs/"$PLATFORM
+  qemu-riscv64 -cpu c906fdv ./build/convolution_driver.x "cnn" $CONFIGFILE $TMIN $TEST $DEBUG $OUTCSV $MR $NR $THREADS $ALGORITHM $GEMM $BESTOF "cache-arch/"$PLATFORM
 fi
 
 

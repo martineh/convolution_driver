@@ -1,0 +1,5 @@
+# +---------------------------------+
+# | JETSON NANO SIMD architecture   |
+# +---------------------------------+
+# VectorLen	MaxRegisters
+128	32

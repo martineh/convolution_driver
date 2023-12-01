@@ -52,8 +52,12 @@ def check_MR_NR(asm, arch):
             tot_vregs += MR_vregs + NR_vregs 
             tot_vregs += 2
 
+    if (arch == "armv8"): tot_vregs += 2
+
     if tot_vregs > asm.vr_max: return -4
-    
+
+    if (arch == "armv8") and (asm.nr + 10 > 32): return -5
+
     return tot_vregs
 
 
@@ -66,16 +70,36 @@ if __name__ == "__main__":
     parser.add_argument('--pipelining', '-p', action='store_true', required=False, help="Enable Software pipelining. Warning: The number of the vector rigisters is incremented. A unroll x2 is applied")
     parser.add_argument('--reorder',    '-r', action='store_true', required=False, help="Reorder A|B load instructions.")
     parser.add_argument('--op_b',       '-o', required=False, type=str, action='store', help="B Matrix opetations method. Values=['broadcast' | 'gather']")
+    parser.add_argument('--vlen',      '-v', required=True,  type=int, help="Vector length.")
+    parser.add_argument('--data',      '-d', required=True,  type=str, action='store', help="Data type.")
+    parser.add_argument('--maxvec',    '-m', required=False, type=int, help="Maximum number of micro-kernel sizes.")
 
     args   = parser.parse_args()
 
-    arch       = args.arch
-    reorder    = args.reorder
-    unroll     = args.unroll
-    pipelining = args.pipelining
-    broadcast  = False
-    gather     = False
-            
+    arch        = args.arch
+    reorder     = args.reorder
+    unroll      = args.unroll
+    pipelining  = args.pipelining
+    broadcast   = False
+    gather      = False
+
+    vlen        = args.vlen
+    maxvec      = args.maxvec
+    data_type = args.data
+
+    if data_type != "FP32":
+        print("Error: Actually, FP32 only supported.")
+        sys.exit(-1)
+    
+    if vlen != 128:
+        print("Error: 128 bits vector length only supported")
+        sys.exit(-1)
+
+    if maxvec is None:
+        maxvec=24
+    elif maxvec > 24:
+        maxvec=28
+
     if args.op_b is not None:
         if (arch != "riscv"):
             print ("Error: This option only is available for riscv.")
@@ -151,42 +175,30 @@ if __name__ == "__main__":
     print ("+=================================================+=====+====+")
     print ("|               MICRO-KERNELS GENERATED           |  MR | NR |")
     print ("+=================================================+=====+====+")
+    
+    nr_lim = maxvec
     if arch == "riscv":
-        for mr in range(4, 24, 4):
-            for nr in range(4, 10, 4):
-                MR = mr
-                NR = nr
+        nr_lim=10
+
+    for mr in range(4, maxvec, 4):
+        for nr in range(4, nr_lim, 4):
+            MR = mr
+            NR = nr
+            if arch == "riscv":
                 asm = RISCV.ASM_RISCV(MR, NR, arch, broadcast, gather, reorder, unroll, pipelining)
-                tot_vregs = check_MR_NR(asm, arch)
-            
-                if tot_vregs > 0:
-                    #----------------------------------------------------------------
-                    #Generating micro-kernel
-                    #----------------------------------------------------------------
-                    asm.generate_umicro()
-                    cm.generate_edge_function(asm)
-                    cm.generate_selector_function(asm)
-                    print(f"|    [*] Micro-kernel                             | %s%-3d%s | %s%-3d%s|" % (bcolor.OKCYAN, MR, bcolor.ENDC, bcolor.OKCYAN, NR, bcolor.ENDC))
-                    #----------------------------------------------------------------
-            
-        cm.generate_selector_function(asm, close=True)
-    else:
-        for mr in range(4, 28, 4):
-            for nr in range(4, 28, 4):
-                MR = mr
-                NR = nr
+            else:
                 asm = ARMv8.ASM_ARMv8(MR, NR, arch, unroll, pipelining)
-                tot_vregs = check_MR_NR(asm, arch)
+
+            tot_vregs = check_MR_NR(asm, arch)
             
-                if tot_vregs > 0:
-                    #----------------------------------------------------------------
-                    #Generating micro-kernel
-                    #----------------------------------------------------------------
-                    asm.generate_umicro()
-                    cm.generate_edge_function(asm)
-                    cm.generate_selector_function(asm)
-                    print(f"|    [*] Micro-kernel                             | %s%-3d%s | %s%-3d%s|" % (bcolor.OKCYAN, MR, bcolor.ENDC, bcolor.OKCYAN, NR, bcolor.ENDC))
-                    #----------------------------------------------------------------
-            
-        cm.generate_selector_function(asm, close=True)
+            if tot_vregs > 0:
+                #----------------------------------------------------------------
+                #Generating micro-kernel
+                #----------------------------------------------------------------
+                asm.generate_umicro()
+                cm.generate_edge_function(asm)
+                cm.generate_selector_function(asm)
+                print(f"|    [*] Micro-kernel                             | %s%-3d%s | %s%-3d%s|" % (bcolor.OKCYAN, MR, bcolor.ENDC, bcolor.OKCYAN, NR, bcolor.ENDC))
+                #----------------------------------------------------------------
+    cm.generate_selector_function(asm, close=True)
     print ("+=================================================+=====+====+\n")
