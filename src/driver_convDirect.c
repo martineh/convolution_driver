@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
   int hdilation;
 
   int tile_H, tile_W;
-  unsigned char wino_on;
+  unsigned char wino_on, model_on;
 
   int params[15];
 
@@ -137,7 +137,25 @@ int main(int argc, char *argv[]) {
 
   ALG     = testConf->ALG; 
   GEMM    = testConf->GEMM; 
+ 
+  mc_blis = testConf->MC;
+  nc_blis = testConf->NC;
+  kc_blis = testConf->KC;
   
+  COB = testConf->MC;
+  WOB = testConf->NC;
+  CIB = testConf->KC;
+
+  model_on = 1;
+  if (mc_blis != -1 && nc_blis != -1 && kc_blis != -1) {
+    model_on = 0;
+  } else {
+    if (mc_blis < 32 || nc_blis < 32 || kc_blis < 32) {
+      printf("ERROR: MC, NC and KC must have a minimum value of 32\n");
+      exit(-1);
+    }
+  }
+
   #if defined(INT8)
     errorthd = 0.5;
   #elif defined(FP16)
@@ -148,13 +166,13 @@ int main(int argc, char *argv[]) {
     errorthd = 1.0e-14;
   #endif
 
-  fprintf(testConf->fd_csv, "l;CIB;COB;WOB;n;k;c;ho;wo;kh;kw;Time;GFLOPS;Error;MR;NR\n");    
+  fprintf(testConf->fd_csv, "l;WOB;COB;CIB;n;k;c;ho;wo;kh;kw;Time;GFLOPS;Error;MR;NR\n");    
 
   printf(" +==================================================================================================================+\n");
   printf(" |%s                                        DRIVER FOR CONVOLUTION EVALUATION                                         %s|\n",
   COLOR_BOLDYELLOW, COLOR_RESET);
   printf(" +=========+===========================+======================================+==============================+======+\n");
-  printf(" | %sMR   NR | COB(MC)  WOB(NC)  CIB(KC) |   n     k     c   ho    wo   (kh,kw) |  GFLOPS     Time     Error   | Test%s |\n",
+  printf(" | %sMR   NR | WOB(MC)  COB(NC)  CIB(KC) |   n     k     c   ho    wo   (kh,kw) |  GFLOPS     Time     Error   | Test%s |\n",
   COLOR_RESET, COLOR_RESET);
   printf(" +=========+===========================+======================================+==============================+======+\n");
     
@@ -220,25 +238,32 @@ int main(int argc, char *argv[]) {
         if (strcmp("CONVDIRECT", ALG)==0) {
           MR = mr_iter; 
           NR = nr_iter;
+          if (WOB != -1) WOB = WOB / MR * MR;
+          if (COB != -1) COB = COB / NR * NR;
         }
-    
+
         if (strcmp("LOWERING", ALG)==0 || strcmp("CONVGEMM", ALG)==0) {
-          get_optim_mc_nc_kc(sizeof(DTYPE), n_gemm, m_gemm, k_gemm, NR, MR, &COB, &WOB, &CIB, params);
-          //get_optim_mc_nc_kc(sizeof(DTYPE), m_gemm, n_gemm, k_gemm, MR, NR, &COB, &WOB, &CIB, params);
-          
-          mc_blis = COB; nc_blis = WOB; kc_blis = CIB;
-    
+          if (model_on) {
+            //get_optim_mc_nc_kc(sizeof(DTYPE), n_gemm, m_gemm, k_gemm, NR, MR, &COB, &WOB, &CIB, params);
+	    //mc=WOB; nc=COB; kc=CIB
+            get_optim_mc_nc_kc(sizeof(DTYPE), m_gemm, n_gemm, k_gemm, MR, NR, &WOB, &COB, &CIB, params);
+            mc_blis = WOB; nc_blis = COB; kc_blis = CIB;
+	  }
           Ac_blis = (DTYPE *)aligned_alloc(32, TH*(MR+mc_blis)*(kc_blis)*sizeof(DTYPE));
           Bc_blis = (DTYPE *)aligned_alloc(32, TH*(kc_blis)*(NR+nc_blis)*sizeof(DTYPE));
         } else {
-          MR = nr_iter; NR = mr_iter;
-          get_optim_mc_nc_kc(sizeof(DTYPE), m_gemm, n_gemm, k_gemm, MR, NR, &COB, &WOB, &CIB, params);
-          MR = mr_iter; NR = nr_iter;
-    
-          if (WOB % MR != 0) {
+          
+	  if (model_on) {
+            MR = nr_iter; NR = mr_iter;
+	    //m=Wo -> ; n=Co; k=Ci
+            get_optim_mc_nc_kc(sizeof(DTYPE), k, wo, c, MR, NR, &COB, &WOB, &CIB, params);
+            MR = mr_iter; NR = nr_iter;
+	  }
+
+          if (WOB != wo && WOB % MR != 0) {
             printf("ERROR: WOB must be multiple of MR. Now WOB=%d and MR=%d\n", WOB, MR);
             exit(-1);
-          } else if (COB % NR != 0) {
+          } else if (COB != k && COB % NR != 0) {
             printf("ERROR: COB must be multiple of NR. Now COB=%d and NR=%d\n", COB, NR);
             exit(-1);
           }
@@ -370,6 +395,13 @@ int main(int argc, char *argv[]) {
                                 alphap, F, lda, DEXT, ldb, betap, Y, ldc,
                                 Ac_blis, Bc_blis, mc_blis, nc_blis, kc_blis, 
 				MR, NR, TH, Ctmp, ukr, ukr_edge);
+	    } else if (strcmp("A3B2C0", GEMM)==0) {
+              gemm_blis_A3B2C0( 'C', 'C', 'C', 'N', 'N', mm, nn, kk, 
+                                alphap, F, lda, DEXT, ldb, betap, Y, ldc,
+                                Ac_blis, Bc_blis, mc_blis, nc_blis, kc_blis, 
+				MR, NR, TH, Ctmp, ukr, ukr_edge);
+	    } else {
+	      printf("ERROR: Algorithm unsupported.\n"); exit(-1);
 	    }
 
           } else if (strcmp("CONVGEMM", ALG)==0) {
@@ -475,7 +507,7 @@ int main(int argc, char *argv[]) {
           if ((strcmp("LOWERING", ALG)==0 || strcmp("WINOGRAD", ALG)==0) && (strcmp("BLIS", GEMM)==0 || strcmp("OPENBLAS", GEMM)==0))
             printf(" | -    -  |   -         -        -    | %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e |", n, k, c, ho, wo, r, s, COLOR_BOLDMAGENTA, GFLOPS, COLOR_RESET, time, error);
 	  else
-            printf(" | %-3d  %-2d | %-8d %-8d %-8d| %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e |", MR, NR, COB, WOB, CIB,  n, k, c, ho, wo, r, s, COLOR_BOLDMAGENTA, GFLOPS, COLOR_RESET, time, error);
+            printf(" | %-3d  %-2d | %-8d %-8d %-8d| %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e |", MR, NR, WOB, COB, CIB,  n, k, c, ho, wo, r, s, COLOR_BOLDMAGENTA, GFLOPS, COLOR_RESET, time, error);
 	}
 
 	if (GFLOPS > best_flops) {
@@ -523,7 +555,7 @@ int main(int argc, char *argv[]) {
     }
     if (testConf->bestof=='T') {
       printf(" +---------+---------------------------+--------------------------------------+------------------------------+------+\n");
-      printf(" | %s%-3d  %-2d | %-8d %-8d %-8d| %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e %s|", COLOR_BOLDWHITE, best_mr, best_nr, best_COB, best_WOB, best_CIB,  n, k, c, ho, wo, r, s, COLOR_BOLDWHITE, best_flops, COLOR_RESET, best_time, best_error, COLOR_RESET);
+      printf(" | %s%-3d  %-2d | %-8d %-8d %-8d| %3d %5d %5d %5d %5d   (%1d,%1d)  | %s%-10.2e%s %-8.1e %8.1e %s|", COLOR_BOLDWHITE, best_mr, best_nr, best_WOB, best_COB, best_CIB,  n, k, c, ho, wo, r, s, COLOR_BOLDWHITE, best_flops, COLOR_RESET, best_time, best_error, COLOR_RESET);
       if ( testConf->test=='T' )
         if ( best_error < errorthd)
           printf("  %sOK%s  |", COLOR_GREEN, COLOR_RESET);
@@ -534,12 +566,12 @@ int main(int argc, char *argv[]) {
       printf("\n");
       printf(" +---------+---------------------------+--------------------------------------+------------------------------+------+\n");
 
-      fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, best_CIB, best_COB, best_WOB, n, k, c, ho, wo, r, s, best_time, best_flops, best_error, best_mr, best_nr);
+      fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, best_WOB, best_COB, best_CIB, n, k, c, ho, wo, r, s, best_time, best_flops, best_error, best_mr, best_nr);
     } else
       if (strcmp("WINOGRAD", ALG)==0 && !wino_on) //Winowrad unsuported for this layer
         fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, 0, 0, 0, n, k, c, ho, wo, r, s, 0.0, 0.0, error, 0, 0);
       else
-        fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, CIB, COB, WOB, n, k, c, ho, wo, r, s, time, GFLOPS, error, MR, NR);
+        fprintf(testConf->fd_csv,"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2e;%.2f;%.2e;%d;%d\n",testConf->cnn[cnn_i].layer, WOB, COB, CIB, n, k, c, ho, wo, r, s, time, GFLOPS, error, MR, NR);
   }
 
   fclose(testConf->fd_csv);

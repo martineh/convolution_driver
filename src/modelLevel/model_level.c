@@ -101,12 +101,12 @@ void get_optim_mc_nc_kc(int dataSize, int m, int n, int k, int mr, int nr, int *
   *kc = min(k, *kc);
   
   *mc = model_level(0, params[7], params[8], params[9], dataSize, *kc, nr); *mc = floor(*mc);
-  *mc = (size_t)(*mc / mr) * mr + mr;
-  //*mc = min(m, *mc);
+  *mc = min(m, *mc);
+  *mc = ceil((float)*mc / (float)mr) * mr;
   
   *nc = model_level(1, params[12], params[13], params[14], dataSize, *kc, *mc); *nc = floor(*nc);
-  *nc = (size_t)(*nc / nr) * nr + nr;
-  //*nc = min(n, *nc);
+  *nc = min(n, *nc);
+  *nc = ceil((float)*nc / (float)nr) * nr;
   
 }
 

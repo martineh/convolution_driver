@@ -37,11 +37,11 @@ void gemm_blis_B3A2C0( char, char, char, char, char, size_t, size_t, size_t,
 		       size_t, size_t, int, int, int, DTYPE *,
 		       ukernel_asm ukr, ukernel_edge ukr_edge);
 
-void gemm_blis_A3B2C0( char, char, char, char, char, size_t , size_t, size_t, 
+void gemm_blis_A3B2C0( char, char, char, char, char, size_t, size_t, size_t, 
 		       DTYPE, DTYPE *, size_t, DTYPE *, size_t, 
-		       DTYPE,  DTYPE *, size_t, DTYPE *, DTYPE *, 
-		       size_t, size_t, size_t, int, int, DTYPE *,
-		       void (*kernel)(size_t , float *, float *, float *, float *, float *, size_t ));
+		       DTYPE, DTYPE *, size_t, DTYPE *, DTYPE *, size_t, 
+		       size_t, size_t, int, int, int, DTYPE *,
+		       ukernel_asm ukr, ukernel_edge ukr_edge);
 
 void gemm_base_Cresident( char, int, int, int, DTYPE, DTYPE *, int, DTYPE *, int, DTYPE, DTYPE *, int );
 void gemm_base_ABresident( char, char, int, int, int, DTYPE, DTYPE *, int, DTYPE *, int, DTYPE, DTYPE *, int );

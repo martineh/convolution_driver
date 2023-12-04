@@ -135,6 +135,7 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
   char format_str[12];
   char algorithm[64];
   char kernel[64];
+  char loop[12];
 
   new_testConfig->format = NHWC;
   new_testConfig->tmin   = atof(argv[3]);
@@ -150,10 +151,24 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
 
   new_testConfig->bestof = argv[12][0];
 
+  new_testConfig->MC = atoi(argv[14]);
+  new_testConfig->NC = atoi(argv[15]);
+  new_testConfig->KC = atoi(argv[16]);
+
   sprintf(format_str, "%s", "NHWC");
 
   sprintf(algorithm, "%s", new_testConfig->ALG);
   sprintf(kernel,    "%s", new_testConfig->GEMM);
+  
+  #if defined(L3)
+  sprintf(loop, "%s", "L3");
+  #elif defined(L4)
+  sprintf(loop, "%s", "L4");
+  #elif defined(L5)
+  sprintf(loop, "%s", "L5");
+  #else
+  sprintf(loop, "%s", "--");
+  #endif
 
   printf("\n");
   printf(" +==================================================================================================================+\n");
@@ -168,8 +183,11 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
   printf(" |  [%s*%s] File Results Selected          |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[6]);
   printf(" +=====================================+============================================================================+\n");
   printf(" |  [%s*%s] Algorithm Selected             |  %s%-74s%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDCYAN, algorithm, COLOR_RESET);
-  if (strcmp("LOWERING", new_testConfig->ALG)==0)
+  if (strcmp("LOWERING", new_testConfig->ALG)==0) {
     printf(" |  [%s*%s] GEMM Selected                  |  %s%-74s%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDCYAN, kernel, COLOR_RESET);
+    if (new_testConfig->TH > 1)
+      printf(" |  [%s*%s] LOOP Selected                  |  %s%-74s%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDCYAN, loop, COLOR_RESET);
+  }
   printf(" |  [%s*%s] Threads Number                 |  %s%-74d%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDCYAN, new_testConfig->TH, COLOR_RESET);
   printf(" |  [%s*%s] Best Of Micro-kernels          |  %s%-74s%s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, COLOR_BOLDCYAN, argv[12][0] == 'T' ? "ON" : "OFF", COLOR_RESET);
   printf(" +=====================================+============================================================================+\n\n");
