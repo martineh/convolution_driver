@@ -199,8 +199,8 @@ int main(int argc, char *argv[]) {
     wino_on = 1;
     if (r == 3) {h += 2; w += 2;}
 
-    int m_gemm = n * ho * wo;
-    int n_gemm = k;
+    int m_gemm = k; 
+    int n_gemm = n * ho * wo;
     int k_gemm = c * r * s;
 
     //-------------------------------------------------
@@ -244,9 +244,12 @@ int main(int argc, char *argv[]) {
 
         if (strcmp("LOWERING", ALG)==0 || strcmp("CONVGEMM", ALG)==0) {
           if (model_on) {
-            //get_optim_mc_nc_kc(sizeof(DTYPE), n_gemm, m_gemm, k_gemm, NR, MR, &COB, &WOB, &CIB, params);
+	    if (strcmp("A3B2C0", GEMM)==0)
+              get_optim_mc_nc_kc(sizeof(DTYPE), n_gemm, m_gemm, k_gemm, NR, MR, &COB, &WOB, &CIB, params);
+	    else
+              get_optim_mc_nc_kc(sizeof(DTYPE), m_gemm, n_gemm, k_gemm, MR, NR, &WOB, &COB, &CIB, params);
+
 	    //mc=WOB; nc=COB; kc=CIB
-            get_optim_mc_nc_kc(sizeof(DTYPE), m_gemm, n_gemm, k_gemm, MR, NR, &WOB, &COB, &CIB, params);
             mc_blis = WOB; nc_blis = COB; kc_blis = CIB;
 	  }
           Ac_blis = (DTYPE *)aligned_alloc(32, TH*(MR+mc_blis)*(kc_blis)*sizeof(DTYPE));
@@ -254,9 +257,11 @@ int main(int argc, char *argv[]) {
         } else {
           
 	  if (model_on) {
+	    //m=Wo; n=Co; k=Ci
             MR = nr_iter; NR = mr_iter;
-	    //m=Wo -> ; n=Co; k=Ci
             get_optim_mc_nc_kc(sizeof(DTYPE), k, wo, c, MR, NR, &COB, &WOB, &CIB, params);
+	    //TODO: Poor performance. Why?? Reverse micro-kernels??
+            //get_optim_mc_nc_kc(sizeof(DTYPE), wo, k, c, MR, NR, &WOB, &COB, &CIB, params);
             MR = mr_iter; NR = nr_iter;
 	  }
 
