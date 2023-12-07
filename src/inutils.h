@@ -64,6 +64,7 @@ typedef struct testConfig {
   int MC;
   int NC;
   int KC;
+  int LOOP;
   char ALG[64];
   char GEMM[64];
   FILE *fd_csv;  

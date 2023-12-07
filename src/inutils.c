@@ -154,21 +154,22 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
   new_testConfig->MC = atoi(argv[14]);
   new_testConfig->NC = atoi(argv[15]);
   new_testConfig->KC = atoi(argv[16]);
+  
+  new_testConfig->LOOP = atoi(argv[17]);
 
   sprintf(format_str, "%s", "NHWC");
 
   sprintf(algorithm, "%s", new_testConfig->ALG);
   sprintf(kernel,    "%s", new_testConfig->GEMM);
-  
-  #if defined(L3)
+ 
+  if (new_testConfig->LOOP == 3) 
   sprintf(loop, "%s", "L3");
-  #elif defined(L4)
+  else if (new_testConfig->LOOP == 4) 
   sprintf(loop, "%s", "L4");
-  #elif defined(L5)
+  else if (new_testConfig->LOOP == 5) 
   sprintf(loop, "%s", "L5");
-  #else
+  else
   sprintf(loop, "%s", "--");
-  #endif
 
   printf("\n");
   printf(" +==================================================================================================================+\n");

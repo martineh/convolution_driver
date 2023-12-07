@@ -21,7 +21,7 @@ endif
 #------------------------------------------
 
 ifeq ($(OMP_ENABLE), T)
-  OPTFLAGS += -fopenmp -DOMP_ENABLE -D$(PARALLEL_LOOP)
+  OPTFLAGS += -fopenmp -DOMP_ENABLE
 endif
 
 OBJDIR = build

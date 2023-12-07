@@ -399,12 +399,12 @@ int main(int argc, char *argv[]) {
               gemm_blis_B3A2C0( 'C', 'C', 'C', 'N', 'N', mm, nn, kk, 
                                 alphap, F, lda, DEXT, ldb, betap, Y, ldc,
                                 Ac_blis, Bc_blis, mc_blis, nc_blis, kc_blis, 
-				MR, NR, TH, Ctmp, ukr, ukr_edge);
+				MR, NR, TH, testConf->LOOP, Ctmp, ukr, ukr_edge);
 	    } else if (strcmp("A3B2C0", GEMM)==0) {
               gemm_blis_A3B2C0( 'C', 'C', 'C', 'N', 'N', mm, nn, kk, 
                                 alphap, F, lda, DEXT, ldb, betap, Y, ldc,
                                 Ac_blis, Bc_blis, mc_blis, nc_blis, kc_blis, 
-				MR, NR, TH, Ctmp, ukr, ukr_edge);
+				MR, NR, TH, testConf->LOOP, Ctmp, ukr, ukr_edge);
 	    } else {
 	      printf("ERROR: Algorithm unsupported.\n"); exit(-1);
 	    }
