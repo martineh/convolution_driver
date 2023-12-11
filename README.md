@@ -6,7 +6,7 @@ The ConvLib performs convolution operations using the optimal algorithm configur
 - As ConvLIB is a parallel library, an OpenMP solution is also required.
 
 ## How to install
-1. Modify the Makefile.inc file for configuring the installation.
+1. Modify the `Makefile.inc` file for configuring the installation.
 2. 
 ## How to use 
 
