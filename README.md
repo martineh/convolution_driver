@@ -9,6 +9,7 @@ The ConvLib performs convolution operations using the optimal algorithm configur
 1. Modify the `Makefile.inc` file for configuring the installation.
 2. Configure the micro-kernel generation process in `SIMD_generator.config` file.
 3. Run the `build.sh` script.
+
 ## How to use 
 
 ## How to cite
