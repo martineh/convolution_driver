@@ -23,6 +23,8 @@ The ConvLib performs convolution operations using the optimal algorithm configur
    ``` sh
    ./convolution.sh
    ```
-   
+## Adding a new CNN model
+Adding a new CNN model is as easy as adding a new file to the `cnn` folder following the format of already existent ones. 
+
 ## How to cite
 Pending
