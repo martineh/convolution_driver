@@ -1,0 +1,8 @@
+# +---------------------------------+
+# | XXXXXX ARCH SIMD architecture   |
+# +---------------------------------+
+# VectorLen	MaxRegisters
+Nbits	N
+
+# Where Nbits is the length of the vectorial registers.
+# N is the number of vectorial registers.
