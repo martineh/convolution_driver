@@ -2,8 +2,8 @@
 The ConvLib performs convolution operations using the optimal algorithm configuration and hardware-aware code for the best performance.
 
 ## Requisites
-- ConvLIB can interact with Linear Algebra Libraries such as OpenBLAS or BLIS so they are added as a submodule.
-- As ConvLIB is a parallel library, an OpenMP solution is also required.
+- OpenBLAS and BLIS (added as GitHub submodules).
+- OpenMP if a parallel execution is required.
 
 ## Supported Hardware
 - ARM A57, A78AE, CARMEL
