@@ -29,8 +29,8 @@ Where `MODEL` is the desired CNN model and `OUT` is the name of the output file.
 Adding a new CNN model is as easy as adding a new file to the `cnn` folder following the format of already existing ones. 
 
 ## Adding new hardware
-1. Add a new file in the `cache-arch` folder following the template.
-2. Add a new file in the `SIMD-arch` folder following the template.
+1. Add a new file in the `cache-arch` folder following the `cache-TEMPLATE` file.
+2. Add a new file in the `SIMD-arch` folder following the `SIMD-TEMPLATE` file.
 
 ## How to cite
 Pending
