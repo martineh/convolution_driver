@@ -1,0 +1,13 @@
+# +---------------------------------+
+# | XXXXXX ARCH Cache Configuration |
+# +---------------------------------+
+#Level	SL	NL	CL	WL
+1	X	X	X	X
+2	X	X	X	X
+3	X	X	X	X
+
+# NL:   Number of sets
+# CL:   Bytes per line
+# WL:   Associativity degree
+# SL:   Cache size
+# Note: CLn = SLn / (WLn * NLn)
