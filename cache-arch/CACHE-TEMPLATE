@@ -11,3 +11,4 @@
 # WL:   Associativity degree
 # SL:   Cache size
 # Note: CLn = SLn / (WLn * NLn)
+
