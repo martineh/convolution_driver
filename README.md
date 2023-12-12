@@ -12,19 +12,21 @@ The ConvLib performs convolution operations using the optimal algorithm configur
 ## How to install
 1. Modify the `Makefile.inc` file for configuring the installation.
 2. Configure the micro-kernel generation process in `SIMD_generator.config` file.
-3. Run the `convolution.sh` script as follows:
+3. Run the `build.sh` script as follows:
    ``` sh
-   ./build.sh
+   $ ./build.sh
    ```
 
 ## How to use 
 1. Configure the convolution features in the `convolution.config` file.
 2. Run the `convolution.sh` script as follows:
    ``` sh
-   ./convolution.sh
+   $ ./convolution.sh cnn/MODEL output/OUT
    ```
+Where `MODEL` is the desired CNN model and `OUT` is the name of the output file.
+
 ## Adding a new CNN model
-Adding a new CNN model is as easy as adding a new file to the `cnn` folder following the format of already existent ones. 
+Adding a new CNN model is as easy as adding a new file to the `cnn` folder following the format of already existing ones. 
 
 ## How to cite
 Pending
