@@ -2,6 +2,8 @@
 
 source convolution.config
 
+echo 
+
 export OMP_PROC_BIND=TRUE
 export OMP_NUM_THREADS=$THREADS
 
@@ -33,12 +35,12 @@ if [ $THREADS -gt 0 ]; then
     cpus="0-$(($THREADS-1))"
   fi
 else
-    echo "ERROR: Minimum value for Number of thread is 1."
+    echo " ERROR: Minimum value for Number of thread is 1."
     exit -1
 fi
 
 if [ ! -f $CONFIGFILE ]; then
-    echo "ERROR: The Test configure doesn't exist. Please, enter a valid filename."
+    echo " ERROR: The Test configure doesn't exist. Please, enter a valid filename."
     exit -1
 fi
 
@@ -59,17 +61,17 @@ if [ ! -f $OUTCSV ]; then
 fi
 
 if [ "$ALGORITHM" = "LOWERING" ] && [ "$GEMM" = "OPENBLAS" ] ; then
-  echo "WARNING: LOWERING + OPENBLAS Enable. BESTOF Option not available. Disabled automaticaly."
+  echo " WARNING: LOWERING + OPENBLAS Enable. BESTOF Option not available. Disabled automaticaly."
   BESTOF=F
 fi
 
 if [ "$ALGORITHM" = "LOWERING" ] && [ "$GEMM" = "BLIS" ]; then
-  echo "WARNING: LOWERING + BLIS Enable. BESTOF Option not available. Disabled automaticaly."
+  echo " WARNING: LOWERING + BLIS Enable. BESTOF Option not available. Disabled automaticaly."
   BESTOF=F
 fi
 
 if [ "$ALGORITHM" = "WINOGRAD" ] ; then
-  echo "WARNING: WINOGRAD Enable. BESTOF Option not available. Disabled automaticaly."
+  echo " WARNING: WINOGRAD Enable. BESTOF Option not available. Disabled automaticaly."
   BESTOF=F
   MR=4
   NR=4

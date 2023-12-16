@@ -1,19 +1,10 @@
 #!/bin/bash
 
+source src/bash/arch.sh
+
 source SIMD_generator.config
 
 CONFIG_PATH=SIMD-arch
-
-sys_arch=$(uname -p)
-
-if [ "$sys_arch" = "aarch64" ]; then
-  ARCH="ARMV8"
-else
-  ARCH="RISCV"
-fi
-
-BUILDPATH="build"
-mkdir -p $BUILDPATH
 
 #-Set pipelining option for ukernel generator
 _PIPELINING=""
@@ -56,7 +47,7 @@ MAXVECTOR=$(tail -1 $CONFIG_PATH/$ARCH_CONFIG | cut -f2)
 
 rm src/asm_generator/ukernels/*
 
-if [ "$ARCH" = "RISCV" ]; then
+if [ "$ARCH" = "$RISCV" ]; then
   ./src/asm_generator/ukernels_generator.py --arch riscv --data ${DATA} --vlen ${VLEN} \
 	                                    --maxvec ${MAXVECTOR} ${_OP} ${_REORDER} ${_PIPELINING} ${_UNROLL}
 else
