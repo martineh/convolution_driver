@@ -40,7 +40,10 @@
 #include "convDirect.h"
 #include "colors.h"
 #include "inutils.h"
-#include "convWinograd/conv_winograd.h"
+
+#ifdef ARMV8
+  #include "convWinograd/conv_winograd.h"
+#endif
 
 #include "im2row.h"
 #include "im2col.h"
@@ -156,6 +159,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  #ifdef RISCV
+    if (strcmp("WINOGRAD", ALG)==0){ printf("  ERROR: Winograd Test unsuported for RISC-V arch.\n"); exit(-1); }
+  #endif
+
   #if defined(INT8)
     errorthd = 0.5;
   #elif defined(FP16)
@@ -230,9 +237,15 @@ int main(int argc, char *argv[]) {
           NR = nr_iter;
         }
 
-        if (strcmp("WINOGRAD", ALG)!=0) {
+        if ((strcmp("CONVDIRECT", ALG)==0) ||
+	    (strcmp("CONVGEMM",   ALG)==0) ||
+	    ((strcmp("LOWERING",  ALG)==0) && (strcmp("B3A2C0", GEMM)==0)) || 
+	    ((strcmp("LOWERING",  ALG)==0) && (strcmp("A3B2C0", GEMM)==0))) {
           ukernels_selector(MR, NR, &ukr, &ukr_edge);
-	  if (ukr == NULL)  continue; 
+	  if (ukr == NULL)  {
+	    if (testConf->bestof=='F') {printf("\n ERROR: Micro-kernel %dx%d unsuported. Try other size.\n\n", MR, NR); exit(-1);}
+	    continue; 
+	  }
 	}
         
         if (strcmp("CONVDIRECT", ALG)==0) {
@@ -355,13 +368,13 @@ int main(int argc, char *argv[]) {
             tile_H = ceil(((double) h + 2 * vpadding - t) / m) + 1;
             tile_W = ceil(((double) w + 2 * hpadding - t) / m) + 1;
 
-            conv_winograd_workspace_alloc(m, r, n, k, c, h, w, r, s, vpadding, hpadding, &U, &V, &M);
-            
-	    memset(U, 0, t * t * k * c * sizeof(DTYPE));
-            memset(V, 0, t * t * c * (n * tile_H * tile_W) * sizeof(DTYPE));
-            memset(M, 0, t * t * k * (n * tile_H * tile_W) * sizeof(DTYPE));
-
-	    conv_winograd_2x2_3x3_neon_fp32_nhwc_pre(m, r, n, k, c, r, s, F, ldF1, ldF2, ldF3, U);
+            #ifdef ARMV8
+              conv_winograd_workspace_alloc(m, r, n, k, c, h, w, r, s, vpadding, hpadding, &U, &V, &M);
+	      memset(U, 0, t * t * k * c * sizeof(DTYPE));
+              memset(V, 0, t * t * c * (n * tile_H * tile_W) * sizeof(DTYPE));
+              memset(M, 0, t * t * k * (n * tile_H * tile_W) * sizeof(DTYPE));
+	      conv_winograd_2x2_3x3_neon_fp32_nhwc_pre(m, r, n, k, c, r, s, F, ldF1, ldF2, ldF3, U);
+            #endif
 	  }
 	}
    
@@ -434,10 +447,14 @@ int main(int argc, char *argv[]) {
 	    		          ukr, ukr_edge);
             
           } else if (strcmp("WINOGRAD", ALG)==0) {
-              conv_winograd_2x2_3x3_neon_fp32_nhwc_kernel(m, r, n, k, c,
-                     ho, wo, r, s, vpadding, hpadding,
-                     D,  ldD1, ldD2, ldD3, Y, ldY1, ldY2, ldY3,
-                     NULL, U,  V, M, 'F', 'F', NULL, NULL, NULL, NULL);
+              #ifdef ARMV8
+                conv_winograd_2x2_3x3_neon_fp32_nhwc_kernel(m, r, n, k, c,
+                       ho, wo, r, s, vpadding, hpadding,
+                       D,  ldD1, ldD2, ldD3, Y, ldY1, ldY2, ldY3,
+                       NULL, U,  V, M, 'F', 'F', NULL, NULL, NULL, NULL);
+	      #else
+                continue;
+              #endif
           } else {
 	    printf("ERROR: Algorithm unsuported\n"); exit(-1);
 	  }
@@ -543,7 +560,11 @@ int main(int argc, char *argv[]) {
           if (strcmp("LOWERING", ALG)==0)
             free(DEXT);
 	} else if (strcmp("WINOGRAD", ALG)==0 && wino_on) {
-	  conv_winograd_workspace_dealloc(&U, &V, &M);
+          #ifdef ARMV8
+	    conv_winograd_workspace_dealloc(&U, &V, &M);
+          #else
+	   continue;
+          #endif 
         } else {
           free(Ac); 
           free(FB);

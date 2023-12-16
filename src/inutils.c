@@ -161,15 +161,15 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
 
   sprintf(algorithm, "%s", new_testConfig->ALG);
   sprintf(kernel,    "%s", new_testConfig->GEMM);
- 
-  if (new_testConfig->LOOP == 3) 
-  sprintf(loop, "%s", "L3");
-  else if (new_testConfig->LOOP == 4) 
-  sprintf(loop, "%s", "L4");
-  else if (new_testConfig->LOOP == 5) 
-  sprintf(loop, "%s", "L5");
-  else
-  sprintf(loop, "%s", "--");
+  
+
+  if ((strcmp("LOWERING", algorithm)==0 && strcmp("B3A2C0", kernel)==0) || 
+      (strcmp("LOWERING", algorithm)==0 && strcmp("A3B2C0", kernel)==0))
+    if (new_testConfig->LOOP == 3)      sprintf(loop, "%s", "L3");
+    else if (new_testConfig->LOOP == 4) sprintf(loop, "%s", "L4");
+    else if (new_testConfig->LOOP == 5) sprintf(loop, "%s", "L5");
+    else                                sprintf(loop, "%s", "--");
+  else sprintf(loop, "%s", "--");
 
   printf("\n");
   printf(" +==================================================================================================================+\n");
@@ -179,7 +179,15 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
   printf(" |  [%s*%s] Test Minimum Time              |  %-74.2f|\n",  COLOR_BOLDYELLOW, COLOR_RESET, new_testConfig->tmin);
   printf(" |  [%s*%s] Test Verification              |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[4][0] == 'T' ? "ON" : "OFF");
   printf(" |  [%s*%s] Mode Debug                     |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[5][0] == 'T' ? "ON" : "OFF");
-  printf(" |  [%s*%s] Model Level Platform           |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[13]);
+  if (new_testConfig->MC == -1 && new_testConfig->NC == -1 && new_testConfig->KC == -1)
+    printf(" |  [%s*%s] Model Level Platform           |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[13]);
+  else
+    printf(" |  [%s*%s] Model Level Platform           |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, "Fixed by the user");
+  #ifdef ARMV8
+  printf(" |  [%s*%s] SIMD Platform                  |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, "Armv8");
+  #else
+  printf(" |  [%s*%s] SIMD Platform                  |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, "RISCV-V");
+  #endif
   printf(" |  [%s*%s] Configuration Selected         |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[2]);
   printf(" |  [%s*%s] File Results Selected          |  %-74s|\n",  COLOR_BOLDYELLOW, COLOR_RESET, argv[6]);
   printf(" +=====================================+============================================================================+\n");
@@ -241,12 +249,3 @@ testConfig_t* new_CNN_Test_Config(char * argv[]) {
 void free_CNN_Test_Config(testConfig_t *testConfig) {
   free(testConfig);
 }
-
-//printf("nmin=%d; nmax=%d; nstep=%d; kmin=%d; kmax=%d; kstep=%d; cmin=%d; cmax=%d; cstep=%d; hmin=%d; hmax=%d; hstep=%d, wmin=%d; wmax=%d; wstep=%d; rmin=%d; rmax=%d; rstep=%d; smin=%d; smax=%d; sstep=%d\n",
-//       cnn[*cnn_num].nmin, cnn[*cnn_num].nmax, cnn[*cnn_num].nstep,
-//       cnn[*cnn_num].kmin, cnn[*cnn_num].kmax, cnn[*cnn_num].kstep,
-//       cnn[*cnn_num].cmin, cnn[*cnn_num].cmax, cnn[*cnn_num].cstep,
-//       cnn[*cnn_num].hmin, cnn[*cnn_num].hmax, cnn[*cnn_num].hstep,
-//      cnn[*cnn_num].wmin, cnn[*cnn_num].wmax, cnn[*cnn_num].wstep,
-//       cnn[*cnn_num].rmin, cnn[*cnn_num].rmax, cnn[*cnn_num].rstep,
-//       cnn[*cnn_num].smin, cnn[*cnn_num].smax, cnn[*cnn_num].sstep);

@@ -5,24 +5,23 @@ include Makefile.inc
 #| COMPILERS                              |
 #------------------------------------------
 OPTFLAGS=
-
-arch=$(shell uname -p)
-
-ifneq ($(arch), aarch64)
-	CC       = riscv64-unknown-linux-gnu-gcc
-	CLINKER  = riscv64-unknown-linux-gnu-gcc
-	#OPTFLAGS   +=  -O3 -fopenmp -march=rv64imafdcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c910
-	OPTFLAGS = -O0 -g3 -march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -DFP32 -mtune=c906 -static
-else
-	CC       = gcc
-	CLINKER  = gcc
-	OPTFLAGS = -march=armv8-a -O3 -DCHECK -DARMV8 -DFP32
+ifneq ($(MAKECMDGOALS),clean)
+    ifeq ($(arch), riscv)
+        CC       = riscv64-unknown-linux-gnu-gcc
+        CLINKER  = riscv64-unknown-linux-gnu-gcc
+        #OPTFLAGS   +=  -O3 -fopenmp -march=rv64imafdcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c910
+        OPTFLAGS = -O0 -g3 -march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -DFP32 -mtune=c906 -static -DRISCV 
+    else ifeq ($(arch), armv8)
+        CC       = gcc
+        CLINKER  = gcc
+        OPTFLAGS = -march=armv8-a -O3 -DCHECK -DARMV8 -DFP32
+    else
+        $(error Architecture unsuported. Please use arch=[riscv|armv8])
+    endif
 endif
 #------------------------------------------
 
-ifeq ($(OMP_ENABLE), T)
-  OPTFLAGS += -fopenmp -DOMP_ENABLE
-endif
+OPTFLAGS += -fopenmp -DOMP_ENABLE
 
 OBJDIR = build
 BIN    = convolution_driver.x
@@ -59,9 +58,10 @@ OBJ_GEMM_FILES = $(patsubst ./src/gemm/%.c, $(OBJDIR)/%.o, $(SRC_GEMM_FILES))
 SRC_CONVGEMM_FILES = $(wildcard ./src/convGemm/*.c)
 OBJ_CONVGEMM_FILES = $(patsubst ./src/convGemm/%.c, $(OBJDIR)/%.o, $(SRC_CONVGEMM_FILES))
 
-SRC_WINOGRAD_FILES = $(wildcard ./src/convWinograd/*.c)
-OBJ_WINOGRAD_FILES = $(patsubst ./src/convWinograd/%.c, $(OBJDIR)/%.o, $(SRC_WINOGRAD_FILES))
- 
+ifeq ($(arch), armv8)
+    SRC_WINOGRAD_FILES = $(wildcard ./src/convWinograd/*.c)
+    OBJ_WINOGRAD_FILES = $(patsubst ./src/convWinograd/%.c, $(OBJDIR)/%.o, $(SRC_WINOGRAD_FILES))
+endif
  
 OBJ_FILES  = $(OBJDIR)/model_level.o $(OBJDIR)/selector_ukernel.o $(OBJDIR)/gemm_ukernel.o $(OBJ_CONV_FILES) $(OBJ_ASM_FILES) $(OBJ_GEMM_FILES) $(OBJ_CONVGEMM_FILES) $(OBJ_WINOGRAD_FILES)
 
