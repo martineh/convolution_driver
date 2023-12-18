@@ -2,7 +2,6 @@
 The ConvLib performs convolution operations using the optimal algorithm configuration and hardware-aware code for the best performance.
 
 ## Requisites
-- OpenBLAS and BLIS (added as GitHub submodules).
 - OpenMP if a parallel execution is required.
 
 ## Supported Hardware
