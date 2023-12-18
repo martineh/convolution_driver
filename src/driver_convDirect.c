@@ -41,7 +41,7 @@
 #include "colors.h"
 #include "inutils.h"
 
-#ifdef ARMV8
+#ifdef ENABLE_WINOGRAD
   #include "convWinograd/conv_winograd.h"
 #endif
 
@@ -161,6 +161,11 @@ int main(int argc, char *argv[]) {
 
   #ifdef RISCV
     if (strcmp("WINOGRAD", ALG)==0){ printf("  ERROR: Winograd Test unsuported for RISC-V arch.\n"); exit(-1); }
+  #else
+      #ifdef DISABLE_WINOGRAD
+        if (strcmp("WINOGRAD", ALG)==0){ printf("  ERROR: Winograd Test on ARMv8 needs compile with BLIS and OpenBLAS linkage. \
+Please, enable it in Makefile.inc and rebuild the driver.\n"); exit(-1); }
+      #endif
   #endif
 
   #if defined(INT8)
@@ -368,7 +373,7 @@ int main(int argc, char *argv[]) {
             tile_H = ceil(((double) h + 2 * vpadding - t) / m) + 1;
             tile_W = ceil(((double) w + 2 * hpadding - t) / m) + 1;
 
-            #ifdef ARMV8
+            #ifdef ENABLE_WINOGRAD
               conv_winograd_workspace_alloc(m, r, n, k, c, h, w, r, s, vpadding, hpadding, &U, &V, &M);
 	      memset(U, 0, t * t * k * c * sizeof(DTYPE));
               memset(V, 0, t * t * c * (n * tile_H * tile_W) * sizeof(DTYPE));
@@ -447,7 +452,7 @@ int main(int argc, char *argv[]) {
 	    		          ukr, ukr_edge);
             
           } else if (strcmp("WINOGRAD", ALG)==0) {
-              #ifdef ARMV8
+              #ifdef ENABLE_WINOGRAD
                 conv_winograd_2x2_3x3_neon_fp32_nhwc_kernel(m, r, n, k, c,
                        ho, wo, r, s, vpadding, hpadding,
                        D,  ldD1, ldD2, ldD3, Y, ldY1, ldY2, ldY3,
@@ -560,7 +565,7 @@ int main(int argc, char *argv[]) {
           if (strcmp("LOWERING", ALG)==0)
             free(DEXT);
 	} else if (strcmp("WINOGRAD", ALG)==0 && wino_on) {
-          #ifdef ARMV8
+          #ifdef ENABLE_WINOGRAD
 	    conv_winograd_workspace_dealloc(&U, &V, &M);
           #else
 	   continue;

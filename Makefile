@@ -19,29 +19,34 @@ ifneq ($(MAKECMDGOALS),clean)
         $(error Architecture unsuported. Please use arch=[riscv|armv8])
     endif
 endif
-#------------------------------------------
 
-OPTFLAGS += -fopenmp -DOMP_ENABLE
-
-OBJDIR = build
-BIN    = convolution_driver.x
 
 #------------------------------------------
-LIBS = -lm
-
+OPTFLAGS   += -fopenmp -DOMP_ENABLE
+OBJDIR      = build
+BIN         = convolution_driver.x
+#------------------------------------------
+LIBS        = -lm
 LIBS_LINKER = $(LIBS)
-INCLUDE = 
+INCLUDE     = 
+WINOGRAD    = ENABLE_WINOGRAD
+#------------------------------------------
+
 
 ifeq ($(BLIS_ENABLE), T)
 	INCLUDE     += -I$(BLIS_HOME)/include/blis/ 
 	LIBS_LINKER += $(BLIS_HOME)/lib/libblis.a 
 	OPTFLAGS    += -DENABLE_BLIS
+else
+        WINOGRAD     = DISABLE_WINOGRAD
 endif
 
 ifeq ($(OPENBLAS_ENABLE), T)
 	INCLUDE     += -I$(OPENBLAS_HOME)/include/
 	LIBS_LINKER += $(OPENBLAS_HOME)/lib/libopenblas.a 
 	OPTFLAGS    += -DENABLE_OPENBLAS
+else
+        WINOGRAD     = DISABLE_WINOGRAD
 endif
 #------------------------------------------
 
@@ -59,12 +64,16 @@ SRC_CONVGEMM_FILES = $(wildcard ./src/convGemm/*.c)
 OBJ_CONVGEMM_FILES = $(patsubst ./src/convGemm/%.c, $(OBJDIR)/%.o, $(SRC_CONVGEMM_FILES))
 
 ifeq ($(arch), armv8)
-    SRC_WINOGRAD_FILES = $(wildcard ./src/convWinograd/*.c)
-    OBJ_WINOGRAD_FILES = $(patsubst ./src/convWinograd/%.c, $(OBJDIR)/%.o, $(SRC_WINOGRAD_FILES))
+    ifeq ($(WINOGRAD), ENABLE_WINOGRAD)
+        SRC_WINOGRAD_FILES = $(wildcard ./src/convWinograd/*.c)
+        OBJ_WINOGRAD_FILES = $(patsubst ./src/convWinograd/%.c, $(OBJDIR)/%.o, $(SRC_WINOGRAD_FILES))
+    endif
+else
+    WINOGRAD = DISABLE_WINOGRAD
 endif
  
 OBJ_FILES  = $(OBJDIR)/model_level.o $(OBJDIR)/selector_ukernel.o $(OBJDIR)/gemm_ukernel.o $(OBJ_CONV_FILES) $(OBJ_ASM_FILES) $(OBJ_GEMM_FILES) $(OBJ_CONVGEMM_FILES) $(OBJ_WINOGRAD_FILES)
-
+OPTFLAGS  += -D$(WINOGRAD)
 
 all: $(OBJDIR)/$(BIN)
 
