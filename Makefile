@@ -97,6 +97,7 @@ $(OBJDIR)/%.o: ./src/asm_generator/ukernels/%.S
 
 $(OBJDIR)/model_level.o: ./src/modelLevel/model_level.c 
 	mkdir -p $(OBJDIR)
+	mkdir -p output
 	$(CC) $(CFLAGS) $(OPTFLAGS) -c -o $@ $< $(INCLUDE) $(LIBS)
 
 $(OBJDIR)/gemm_ukernel.o: ./src/asm_generator/ukernels/gemm_ukernel.c
