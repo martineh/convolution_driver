@@ -70,6 +70,7 @@ ifeq ($(arch), armv8)
     endif
 else
     WINOGRAD = DISABLE_WINOGRAD
+
 endif
  
 OBJ_FILES  = $(OBJDIR)/model_level.o $(OBJDIR)/selector_ukernel.o $(OBJDIR)/gemm_ukernel.o $(OBJ_CONV_FILES) $(OBJ_ASM_FILES) $(OBJ_GEMM_FILES) $(OBJ_CONVGEMM_FILES) $(OBJ_WINOGRAD_FILES)
